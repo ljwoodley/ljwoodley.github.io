@@ -1,0 +1,22 @@
+name: "Laurence James-Woodley"
+navbar:
+  title: "Laurence James-Woodley"
+  type: inverse
+  href: index.html
+  left:
+    - text: "Blog"
+      menu:
+        - text: "HPV Analysis of Human Papomovalisu Virus"
+          href: hpv.html
+        - text: "Regression Analysis"
+          href: FEVRegression.html
+  right:
+    - icon: fa-github fa-2x
+      href: https://github.com/ljwoodley
+    - icon: fa-linkedin fa-2x
+      href: https://www.linkedin.com/in/laurencejwoodley/
+  output:
+   html_document:
+    theme: flatly
+    css: styles.css
+    

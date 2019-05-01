@@ -1,0 +1,224 @@
+---
+title: "Analysis of Human Papillomavirus Vaccine (HPV) Completion Rate"
+output: html_document
+    
+---
+
+![](https://www.washingtonpost.com/resizer/qHRadEF0D0_bZIiowKGvcQSClmU=/1400x0/arc-anglerfish-washpost-prod-thelily-washpost.s3.amazonaws.com/public/LNIPS5FXOJEDBLN4SMBMGZGDEM.gif)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+library(tidyverse)
+library(scales)
+library(gridExtra)
+library(broom)
+library(knitr)
+library(kableExtra)
+```
+
+
+###Introduction
+
+This post attempts to analyze the characteristics of non-pregnant females between the ages of 11 and 26 who started the three-shot sequence of the HPV vaccine and subsequently completed the sequence within 12 months. The data used was collected by the Johns Hopkins Institutional Review Board between January 1, 2007 and June 30, 2008. This sample consists of 1,413 patients of which 469 (33.2%) completed the vaccine within 12 months. The remaining patients either did not complete the sequence or took more than twelve months to complete the sequence. The variables included are  `agegroup` (11-17, 18-26), `race` (white, minority), `medassist` (patient had medical insurance, patient did not have medical insurance),`locationtype` (suburban, urban), `practicetype` (family practice, ob-gyn, pediatric) and `completed` (completed vaccine within 12 months, did not complete vaccine within 12 months). All analyses was conducted at the 5% significance level.
+
+###Preliminary Analysis
+
+Let's first load and format the data. We'll then create a bar graph and do a proportion test for each predictor to determine how it is associated with completion rate.
+```{r, fig.height = 4, fig.align='center'}
+
+#import and format data. 
+df <- read_csv("projects_data/hpv_data.csv") %>%
+  #convert all variable to lowercase
+  rename_all(tolower) %>% 
+  #give variable categories proper names
+  mutate(race = case_when(race == 0 ~ 'white',
+                          TRUE ~  'minority'),
+         completed = case_when(completed  == 0 ~ 'no',
+                               TRUE ~ 'yes'),
+         locationtype = case_when(locationtype == 0 ~ 'suburban',
+                                  TRUE ~ 'urban'),
+         practicetype = case_when(practicetype == 0 ~ 'pediatric',
+                                  practicetype == 1 ~ 'family practice',
+                                  TRUE ~ 'ob-gyn'),
+         medassist = case_when(medassist == 0 ~ 'insurance',
+                               TRUE ~ 'no insurance'),
+         agegroup = case_when(agegroup == 0 ~ '11-17',
+                              TRUE ~ '18-26')) %>% 
+  #convert all variables to factors
+  mutate_all(as.factor) %>% 
+  #put dependent variable first in data frame
+  select(completed, everything())
+ 
+#Function to visualize completion rates. Takes a predictor as input.
+create_bargraph <- function(var_name){
+  df %>% 
+    group_by(!!enquo(var_name), completed) %>% 
+    summarise(count = n()) %>% 
+    mutate(percentage = round(count/sum(count), 2)) %>% 
+  ggplot(., aes(x = !!enquo(var_name), y = percentage, fill = completed))+
+    geom_col()+
+    scale_y_continuous(labels = percent)+
+    geom_text(aes(label = paste0(round(percentage*100),"%\n", '(',count,')')), position = position_stack(vjust = 0.5))+
+    scale_fill_brewer(palette = "Dark2")+
+    labs(y = "HPV vaccine completion rates\n (n)")
+    
+}
+
+#function to create data  frame for proprotion test.
+#Takes predictor as input
+prop_data <- function(var_name){
+  df %>% 
+    group_by(!!enquo(var_name), completed) %>%
+    summarise(count = n()) %>% 
+    spread(completed, count) %>% 
+    mutate(total = no + yes) %>% 
+    rename("group" = !!enquo(var_name), "success" = "yes")
+  }
+
+#function for two-sample proportion tests. Takes prop_data as input 
+#this was mainly created to do a proportion test on 
+#practicetype as it contains three categories
+prop_test <- function(x){
+  for (i in 1:(nrow(x)-1)){
+    for (j in 2:nrow(x)){
+      if (i != j & i < j ){
+        cat("--------------------------------------------------------------------\n")
+        cat(paste('Proportion test for:', x$group[i],"vs", x$group[j]))
+        print(prop.test(c(x$success[i], x$success[j]), c(x$total[i], x$total[j])))
+      }
+    }
+  }
+}
+
+create_output <- function(x){
+create_bargraph(!!sym(x)) %>% 
+  print()
+prop_data(!!sym(x)) %>% 
+  prop_test()
+}
+
+vars <- c('agegroup','locationtype','medassist','race','practicetype')
+for (i in seq_along(vars)){
+  create_output(vars[i])
+}
+
+```
+
+Based on the results of the two sample test of equality of proportions we see that there is no significant difference 
+in the completion rates between the two age groups (p > 0.05) and there is also no significant difference in the completion rates between patients that attended pediatric clinics and family practice clinics (p > 0.05). However, there is a significant difference between the other comparisons as all p-values were below 0.05.
+
+For instance, we can conclude that the population proportion of completion rates differ for patients that attended suburban clinics and  urban clinics. The sample values ($\hat{p}_1$ = 0.37, $\hat{p}_2$ = 0.25) suggests that the population proportion is higher for patients that attended suburban clinics. Additionally, if we were to collect 100 different samples from the population of women aged 11-26 who enrolled in the anti-HPV vaccination regimen the true proportion of completion rates would be between 6.3% and 16.7% higher for patients that attended suburban clinics compared to urban clinics approximately 95 out of 100 times. 
+
+Wow, statistics is not as confusing as everyone says it is  `r emo::ji("smile")`! We conducted a simple hypothesis test which showed that there was no significant difference in the completion rate between the two age groups and saw that the completion rate was higher for patients that attended suburban clinics when compared to patients that attended urban clinics. But, wait a minute! What's going to happen to the relationship between age group and completion rate if we were to segregate the analysis by location type `r emo::ji("thought")`? For instance, would there still not be a significant difference between the two age groups? Let's determine if there are any changes in the completion rate between the two age groups when segregating by location type.
+
+
+```{r,fig.height = 4, fig.align='center'}
+
+df %>% 
+  group_by(locationtype, agegroup, completed) %>% 
+  summarise(count = n()) %>% 
+  mutate(percentage = round(count/sum(count), 2)) %>% 
+ggplot(., aes(x = agegroup , y = percentage, fill = completed))+
+  geom_col()+
+  facet_wrap(.~locationtype)+
+  scale_y_continuous(labels = percent)+
+  geom_text(aes(label = paste0(round(percentage*100),"%\n", '(',count,')')), position = position_stack(vjust = 0.5))+
+  scale_fill_brewer(palette = "Dark2")+
+  labs(y = "HPV vaccine completion rates\n (n)")
+
+
+age_location <- df %>% 
+  group_by(locationtype, agegroup, completed) %>% 
+  summarise(total = n()) %>% 
+  spread(completed,total) %>% 
+  mutate(total = no + yes) %>% 
+  rename("group" = agegroup, "success" = "yes") 
+
+#split dataframe by location type then apply prop_test to each section
+lapply(split(age_location,age_location[,1]), function(x){
+  print(age_location[1,1])
+  prop_test(x)
+  })
+
+```
+
+
+It appears that segregating by location type causes the previously observed relationship between age group and completion rate to change  `r emo::ji("confused")`. In fact, the completion rate in suburban clinics for the two age groups is the exact opposite of the completion rate in urban clinics. The completion rate for the 11-17 age group is significantly higher than the completion rate of the 18-26 age group in suburban areas (p < 0.05) but interestingly, the completion rate is significantly lower in urban areas for the 11-17 age group (p < 0.05). Based on the bar chart we see that 31% of patients in the 18-26 age group completed the vaccine at suburban clinics while 32% completed the vaccine at urban clinics. However, 45% of patients in the 11-17 age group completed the vaccine at suburban clinics while only 22% completed the vaccine at urban clinics. Thus, the completion rates for the 11-17 age group is affected by the clinic's location and we can infer that 11 to 17 year old patients attending urban clinics may be at a higher risk for non-completion.
+
+###Logistic Regression
+
+Let's create a logistic regression model to explore the association between the predictors and completion rate. The main purpose here would be to isolate the relationship between the predictors and completion rate from the effects of any confounding variables. For instance, say that the completion rate is higher in suburban clinics and that females between the ages of 11 and 17 were more likely to attend suburban clinics. In this case, as we have seen in the previous section, inferences about the completion rate and age group gets manipulated by the effect of location type on age and completion rate. This strange effect is known as [Simpson's Paradox](https://ftp.cs.ucla.edu/pub/stat_ser/r414.pdf), a phenomenon in which trends that appear when the data is segregated into groups changes when the the data is aggregated. Thus, we'll use logistic regression to adjust for this effect and draw more accurate conclusions as to which groups are at a high risk of non-completion.
+
+```{r}
+#create desired reference groups
+var_levels <- c("18-26","minority","no insurance","urban","family practice")
+for (i in seq_along(var_levels)){
+  df[[i+1]] <- relevel(df[[i+1]], var_levels[i])
+}
+
+#function to create conditional models
+conditional_model <- function(filter_vars,model_formula){
+  df_filtered <- df %>% 
+    filter(eval(parse(text=filter_vars)))
+  glm(eval(parse(text=model_formula)),family = binomial, data = df_filtered) %>% 
+    #exponentiate results to compute odds
+    tidy(conf.int=TRUE, exponentiate = TRUE) %>%
+    #remove intercept term
+    slice(-1) %>% 
+    select(-c(std.error, statistic)) %>% 
+    mutate(estimate = round(estimate, 2),
+           conf.low = round(conf.low,2),
+           conf.high = round(conf.high,2),
+           p.value = if_else(p.value < .05, 'p-value < 0.05', 'p-value > 0.05'))
+}
+
+#create conditional models. The output would not be displayed directly 
+#as we'll use inline code for the values
+age26_location <- conditional_model("agegroup == '18-26'", "completed~locationtype")
+age17_location <- conditional_model("agegroup == '11-17'", "completed~locationtype")
+
+pediatric_agegroup <- conditional_model("practicetype == 'pediatric'", "completed~agegroup")
+obgyn_agegroup <- conditional_model("practicetype == 'ob-gyn'", "completed~agegroup")
+family_agegroup <- conditional_model("practicetype == 'family practice'", "completed~agegroup")
+
+pediatric_location <- conditional_model("practicetype == 'pediatric'", "completed~locationtype")
+obgyn_location <- conditional_model("practicetype == 'ob-gyn'", "completed~locationtype")
+
+insurance_location <- conditional_model("medassist == 'insurance'", "completed~locationtype")
+noinsurance_location <- conditional_model("medassist == 'no insurance'", "completed~locationtype")
+                                          
+insurance_agegroup <- conditional_model("medassist == 'insurance'", "completed~agegroup")
+noinsurance_agegroup <- conditional_model("medassist == 'no insurance'", "completed~agegroup")
+
+white_location <- conditional_model("race == 'white'", "completed~locationtype")
+minority_location <- conditional_model("race == 'minority'", "completed~locationtype")
+
+#full model
+glm(completed~., family = binomial, data = df) %>% 
+  tidy(conf.int = TRUE,exponentiate = TRUE) %>% 
+  select(-c(std.error, statistic)) %>%
+  mutate_if(is.numeric, round, 4) %>% 
+  slice(-1) %>% 
+  rename('odds ratio (OR)' = estimate) %>% 
+  kable(caption = "Multivariate Logistic Regression Output") %>% 
+  kable_styling()
+```
+
+
+Patients aged 11 to 17 years old were 1.73 times more likely to complete the vaccine than 18 to 26 year old patients. This is a direct contradiction of the results we saw form the proportion test between the two age groups, which stated that there was no difference in the completion rates between the two age groups. There was no significant difference in the completion rates among 18 to 26 year old patients in suburban and urban clinics (OR = `r age26_location$estimate`, `r age26_location$p.value`, CI = (`r age26_location$conf.low`, `r age26_location$conf.high`)) but patients aged 11 to 17 were almost three times more likely to complete the vaccination in suburban clinics than urban clinics (OR = `r age17_location$estimate`, `r age17_location$p.value`, CI = (`r age17_location$conf.low`, `r age17_location$conf.high`))
+
+Patients with insurance were 1.94 times more likely to complete the vaccine than patients without insurance. Additionally, for patients with insurance the completion rate in suburban clinics was higher than urban clinics (OR = `r insurance_location$estimate`, `r insurance_location$p.value`, CI = (`r insurance_location$conf.low`,`r insurance_location$conf.high`)) while there was no difference in the completion rates between suburban and urban locations for patients without insurance (OR = `r noinsurance_location$estimate`, `r noinsurance_location$p.value`, CI = (`r noinsurance_location$conf.low`,`r noinsurance_location$conf.high`)). For patients without insurance there was no difference in the completion rate between the two age groups (OR = `r noinsurance_agegroup$estimate`, `r noinsurance_agegroup$p.value`, CI = (`r noinsurance_agegroup$conf.low`,`r noinsurance_agegroup$conf.high`)) but 11 to 17 year old patients with insurance were more likely to complete the vaccine than 18 to 26 year old patients with insurance (OR = `r insurance_agegroup$estimate`, `r insurance_agegroup$p.value`, CI = (`r insurance_agegroup$conf.low`,`r insurance_agegroup$conf.high`)).
+
+In pediatric clinics the completion rate for 11 to 17 year old patients was higher (OR = `r pediatric_agegroup$estimate`, `r pediatric_agegroup$p.value`, CI = (`r pediatric_agegroup$conf.low`, `r pediatric_agegroup$conf.high`)). In family practice clinics patients aged 11 to 17 were also more likely to complete the vaccine (OR = `r family_agegroup$estimate`, `r family_agegroup$p.value`, CI = (`r family_agegroup$conf.low`, `r family_agegroup$conf.high`)) while in ob-gyn clinics there was no significant difference in completion rates between the two age groups (OR = `r obgyn_agegroup$estimate`, `r obgyn_agegroup$p.value`, CI = (`r obgyn_agegroup$conf.low`, `r obgyn_agegroup$conf.high`)). Additionally, we also see that differences in completion rates were associated with location type when segregating by practice type. Pediatric patients that attended suburban clinics were almost four times more like to complete the vaccination when compared to pediatric patients in urban clinics (OR = `r pediatric_location$estimate`, `r pediatric_location$p.value`, CI = (`r pediatric_location$conf.low`, `r pediatric_location$conf.high`)).This may due to the fact that 93.5% of pediatric patients were between 11 and 17 years of age. However, there were no differences in completion rates between suburban and urban clinics for ob-gyn patients (OR = `r obgyn_location$estimate`, `r obgyn_location$p.value`, CI = (`r obgyn_location$conf.low`, `r obgyn_location$conf.high`)). Additionally, this sample did not contain any family practice clinics within urban locations so we were unable to draw any inferences about the completion rates between urban and suburban locations for family practice clinics.
+
+White patients were 1.37 times more likely to complete the vaccination when compared to minority patients (Black/Hispanic). Among white patients there was no significant difference in the completion rate between the two location types (OR = `r white_location$estimate`, `r white_location$p.value`, CI = (`r white_location$conf.low`, `r white_location$conf.high`)). However, the completion rate at suburban clinics was twice as high as the completion rate at urban clinics for minority patients (OR = `r minority_location$estimate`, `r minority_location$p.value`, CI = (`r minority_location$conf.low`, `r minority_location$conf.high`)).
+
+###Conclusion
+
+Through this analysis we determined that the completion rate among patients between the ages of 11 to 17 was significantly affected by the clinic's location. Specifically, young patients in urban clinics were at a higher risk of non-completion. Additionally, minority patients in urban clinics were also at a high risk of non-completion. Based on these two findings can we further infer that minority patients between 11 and 17 years of age that attend urban clinics are highly unlikely to complete the vaccination in urban clinics?
+
+I'd like to wrap up by stating that my purpose here was not to do a rigorous statistical analysis for an academic paper but instead to shine a `r emo::ji("bulb")` on how fun statistics can be and to show how simple statistical methods and data visualizations can be employed to generate inferences about the population given sample data.

@@ -1,0 +1,169 @@
+---
+title: "Regression Analysis of Forced Expiratory Volume"
+output: html_document
+---           
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+if (!require("pacman")) 
+  install.packages("pacman")
+# Load libraries (load plyr before dplyr so that dplyr's awesomeness can prevail)
+pacman::p_load(
+car,
+MASS,
+zoo,
+kableExtra,
+sjPlot,
+gridExtra,
+grid
+)
+
+resp_function <- read.table("http://ww2.amstat.org/publications/jse/datasets/fev.dat.txt")
+names(resp_function) <- c("age","fev","height","sex","smoke")
+
+#Split data
+set.seed(12764)
+splitSample <- sample(1:nrow(resp_function), .70*nrow(resp_function),replace = F)
+
+train.set <- resp_function[splitSample,]
+valid.set <- resp_function[-splitSample,]
+
+train.set <- zoo(train.set, order.by=index(train.set))
+train.set <- as.data.frame(train.set)
+```
+
+
+###Introduction
+Forced expiratory volume (FEV) is the amount of air a person can exhale during a forced breath. The amount of air exhaled may be measured during the first (FEV$_1$), second (FEV$_2$) or third (FEV$_3$) seconds of the forced breath. FEV is measured during a pulmonary function test by a diagnostic device called a spirometer, which records the amount of air that passes through the body as the person exhales. FEV$_1$ is the most significant parameter for identifying both the restrictive and obstructive respiratory diseases and is a powerful indicator of increased risk of lung cancer and cardiovascular diseases [(Kavitha, Sujatha & Ramakrishnan, 2008)](http://www.measurement.sk/2010/S1/Kavitha.pdf). Thus, having the ability to predict FEV$_1$ is important when data obtained from spirometric measurements are inconsistent or missing. 
+
+###Data
+The [data](http://ww2.amstat.org/publications/jse/datasets/fev.dat.txt) used in this analysis was obtained from The Journal of Statistics Education. It consists of a sample of 654 youths, male and female, aged 3 to 19 years old from the area of East Boston during the late 1970s. We attempt to fit a multiple linear regression model for predicting FEV$_1$ based on the four predictors: age, height, sex (Male = 0, Female = 1) and smoke (Non-smoker = 0, Smoker = 1). Note that each subject was asked if he/she smokes while the data was collected. It is also important to note that older subjects will typically have higher FEV$_1$ values.
+
+###Model Building
+####Model 1
+Let's begin by splitting the data into a training set (70%) and validation set (30%). A preliminary model containing all four predictors will then be fit to the training data and a graphical residual analysis will be conducted to determine if the regression assumptions of linearity, constant error variance and normality of error terms are satisfied. 
+
+```{r echo=FALSE, fig.align="center",fig.cap= "Residual Analysis (model 1)",fig.width=7, fig.height=5}
+model1 <- lm(fev~age+height+sex+smoke, data=train.set)
+pic <- plot_model(model1,type="diag")
+grid.arrange(pic[[2]],pic[[3]],pic[[4]],nrow=2, ncol=2)
+grid.rect(width=unit(.999,"npc"),gp=gpar(lwd=1, fill=NA))
+```
+
+On inspecting the Residuals vs Fitted plot we see that constant error variance is not satisfied. This is indicated by the funnel shape of the residuals. Non-linearity is also present as shown by the curvature of the blue line which is a smooth fit to the residuals. 
+
+The Normal Q-Q plot and density curve do not exhibit significant departure from normality but the results of the Shapiro-Wilk test indicate that the null hypothesis of normality should be rejected (p-value < 0.05). As the Shapiro-Wilk test is sensitive to outliers and influenced by sample size, the smallest deviation from normality will be significant in a fairly large sample. Thus, the Q-Q plot and density curve give a more accurate description of the normality of the residuals. 
+
+Due to non-constant error variance a transformation on the response variable will be performed. A log transformation as well as a box-cox transformation will be performed in an attempt to achieve the necessary linear regression assumptions. 
+
+####Model 2
+The main problem with model 1 was non-constant error variance thus a natural logarithm transformation on the response variable may help to remedy this. Additionally, this transformation on the response variable may also help to "straighten out" a curved relationship.
+
+```{r echo=FALSE, fig.width=7, fig.height=5,fig.align="center", fig.cap="Residual Analysis (model 2 )"}
+model2 <- lm(log(fev)~age+height+sex+smoke, data=train.set)
+pic <- plot_model(model2,type="diag")
+grid.arrange(pic[[2]],pic[[3]],pic[[4]],nrow=2, ncol=2)
+grid.rect(width=unit(.999,"npc"),gp=gpar(lwd=1, fill=NA))
+```
+
+The Residuals vs Fitted plot in figure 2 shows that the points are randomly scattered about the horizontal axis which indicates that constant error variance has been achieved. The blue line is also straight meaning that non-linearity is no longer an issue. The Breusch-Pagan test for heteroscedasticity resulted in a p-value > 0.05, confirming that constant error variance has been achieved for model 2. The normal Q-Q plot and density curve still show slight departure from normality.
+
+####Box-Cox Transformation
+
+The natural logarithm transformation of the response variable in model 2 led to constant error variance but there was still slight non-normality of the error terms . We will try to improve normality by attempting to find the best power transformation on the response variable via the Box-Cox procedure. The Box-Cox procedure estimates $\hat{\lambda}$, the maximum likelihood estimate of $\lambda$ to use in the power transformation (Kunter, Nachtsheim, Neter & Li, 2005). Thus, transforming $y$ into $y$^$\lambda$^ will improve the fit of the model.
+
+```{r,fig.height=3.5, fig.align="center", fig.cap="Figure 3: Box-Cox Plot"}
+bc <- boxcox(model1)
+box("outer",lty="solid")
+```
+
+
+Figure 3 shows the results of the Box-Cox transformation. The plot shows the values of $\lambda$ vs the log-likelihood for model 3. The function draws a line at the value of $\lambda$ that maximizes the log-likelihood as well as lines at the limits of its' 95% confidence interval. Unfortunately, we cannot tell the value of $\lambda$ from looking at the graph but after a line of code we see $\lambda=$ `r round(bc$x[which.max(bc$y)],4)`, which is very close to 0. Thus, using the natural logarithm transformation for model 2 was a reasonable choice.
+
+###Outliers, High Leverage and Influential Observations
+Influential observations are cases that may lead to major changes in the fitted regression function if they are removed. The labeled points in the Cook's distance plot identifies the three observations with the largest Cook's distance. When observations have high Cook's distance scores and are to the upper right or lower right of the Residuals vs Leverage plot they are influential to the regression results. Thus, observations 221, 366 and 416 don't exhibit signs of being influential.
+
+```{r,fig.height=3.5, fig.align="center", fig.cap="Influential Observations"}
+par(mfrow=c(1,2))
+plot(model2, which=c(4,5))
+box("outer",lty="solid")
+```
+
+We shall further investigate these three observations by conducting a Bonferroni adjusted outlier test on observation 221 as it has the largest absolute studentized residual. We will also look at the DFFITS (measures the influence of an observation on its own fitted value), DFBETA (measures the influence of an observation on a specific regression coefficient) and leverage values of all three observations. As we are working with a fairly large sized dataset an observation is considered influential if the absolute value of its DFFITS or DFBETAS exceeds 1. An observation is a high leverage point if the leverage $(h_{ii})$ is more than twice the average, that is, $(h_{ii})$ > $2p/n$ where $p$ is the number of parameters and $n$ is the sample size.
+
+```{r, echo=FALSE}
+Obs <- 221
+Stud <- -3.976
+Bonf <- 0.037
+b <- data.frame(Obs, Stud, Bonf)
+colnames(b) <- c("Observation #","Studentized Residuals", "Bonferroni P-value")
+kable(b,"html",caption="Bonferroni Outlier Test",align = 'c') %>% 
+  kable_styling(bootstrap_options="bordered",full_width=F, position="center")
+
+```
+
+```{r echo=FALSE}
+a <- c(221,366,416)
+b <- c(-0.62,-0.44,-0.49)
+c <- c(0.47,-0.06,0.09)
+d <- c(0.48, -0.08, 0.10)
+e <- c(-0.55,0.09,-0.11)
+f <- c(0.30,-0.16,0.15)
+g <- c(0.03,-0.34,-0.39)
+h <- c(0.075,0.038,0.047)
+i <- c(0.02,0.03,0.02)
+df <- data.frame(a,b,c,d,e,f,g,h,i)
+colnames(df) <- c("Observation #","DFFITS", "DFBETA\nIntercept","DFBETA\nAge",
+                 "DFBETA\nHeight","DFBETA\nSex","DFBETA\nSmoke","Cook's\nDistance","Leverage")
+kable(df,"html",caption="Influential Measures") %>% 
+  kable_styling(bootstrap_options="bordered",full_width=F) 
+
+```
+                   
+The null hypothesis of the Bonferroni adjusted outlier test is the observation is an outlier. Based on the results in table 1 we see p-value < 0.05. Thus, the null hypothesis is rejected and we can conclude that there is not enough evidence to state that observation 221 is an outlier.
+
+The results of table 2 shows that none of the observations exceed one in magnitude, for DFFITS or DFBETA, confirming that they do not exert unnecessary influence on either their own fitted values or on the regression coefficients. Although the leverage value for observation 416 is high leverage, .022 > $2p/n$, the remaining measures do not consider this point to be influential so there is no need for remedial measures. 
+
+The 10th percentile of an F-distribution with $df_1=5$ and $df_2=452$ is 0.321. As the Cook's Distance for observations 221, 366 and 416 are well below this cutoff point we can conclude that these observations are non-influential. As the sample size used is fairly large, it is expected that some outliers and high leverage values will exist by chance, but we have shown that these observations don't exert much influence on the regression estimates. Thus, we have no justification to remove any of these observations. 
+
+###Evaluating Model Performance
+We shall now inspect the regression output of model 2 to evaluate the performance of the model. Here we can determine how well the model explains the variation in FEV$_1$, if multicollinearity exists or if any predictors should be dropped from the model.
+
+```{r}
+model2 <- lm(log(fev)~age+height+sex+smoke, data=train.set)
+summary(model2) 
+```
+```{r, fig.height=3,fig.align="center",fig.cap="Figure 4: VIF" }
+pic <- plot_model(model2,type="diag")
+pic[[1]]
+```
+
+
+Inspecting the regression results we see:
+
++   As we are working with the natural logarithm transformed response, each predicted value of FEV$_1$ is in the natural logarithm scale. Thus, to make inferences about the coefficients we must use the exponentiated values as exponentiation is the inverse of the natural logarithm function. We can say that for a one unit increase in the variable age, holding all other variables constant, we expect a 2.47% increase in FEV$_1$, since $e^.024403$ = 1.0247. However, as sex and smoke are binary variables the interpretation is different. We say that FEV$_1$ will be 3.20% higher for males (sex = 1) than for females (sex = 0), since $e^.031486$ = 1.0320.
+
++  For each estimated regression coefficient, the p-value provides an estimate of the probability that the true coefficient is unlikely to be zero. Coefficients with p-values < 0.05 are considered statistically significant, and should be included in the model. All variables are statistically significant except for smoke (p-value > 0.05) but it will not be dropped from the model as it is of practical importance. 
+
++   The Adjusted R-squared indicates that 79.41% of the variation in FEV$_1$ can be explained by model 2. We also see that multicollinearity is not an issue as no predictor has a variance inflation factor (VIF) greater than five.
+
+Based on the high F-statistic and the preceding performance indicators we can conclude that the model is significant and performing fairly well. The residuals are not too large, the Adjusted R-Square is high and multicollinearity is not present.
+
+###Model Validation
+Here we will measure the predictive ability of our model, i.e. its ability to accurately predict FEV$_1$ values for new subjects based on the four predictors: age, height, sex and smoke. We will re-estimate the model fitted to the training data on the validation data. If the mean squared prediction error (MSPR) of the model fitted on the validation data is close to the mean squared error (MSE) of the model fitted on the training data we can conclude that the model is not seriously biased and has good predictive ability. We see that MSPR = 0.0205 for the validation data and MSE = 0.0217 for the training data. Thus, these values are close and the model has good predictive ability. Additionally, the Adjusted R-Squared for the model fitted on the validation data was 84.41%. This is further evidence that model 2 is a good fit to the data. We shall now use the full dataset to determine the final regression equation for predicting FEV$_1$. The final equation is $$\log(FEV_1)=-1.944+0.023age+0.043height+0.029sex-0.046smoke$$
+
+```{r echo=FALSE}
+full <- lm(log(fev)~age+height+sex+smoke, data=resp_function)
+summary(full)
+```
+
+###Conclusion
+The purpose of this project was to create a multiple linear regression model for predicting FEV$_1$ values in children between ages 3 and 19. The data was split into a training and validation set. The initial regression model, ran on the training data, showed non-constant error variance which indicated a transformation was needed. A natural logarithm transformation was then performed on the response variable, which led to constant variance in model 2. The influence measures showed no evidence of any observations that could greatly affect the regression coefficients and the variance inflation factors showed no signs of multicollinearity. Based on the comparison of MSE and MSPR we concluded that model 2 was a good fit to the data and that it had good predictive ability. 
+When model 2 was regressed on the full dataset all four predictors were significant and the Adjusted R-Square was 80.95%. Thus, this was an overall good fit, and the model can aid in predicting FEV$_1$ values when the data obtained is inconsistent or missing.
+
+
+###References
+
+Kavitha, A., Sujatha, C. M., & Ramakrishnan, S. (2010). Prediction of Spirometric Force Expiratory Volume (FEV1) Data Using Support    Vector Regression. Measurement Science Review, 10(2). Retrieved from http://www.measurement.sk/2010/S1/Kavitha.pdf.
+
+Kutner, H., Nachtsheim, C., Neter, J., & William, L. (2005). Applied Linear Statistical Models (5th ed.). Boston: McGraw-Hill Irwin.

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Regression Analysis of Forced Expiratory Volume</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-inverse  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Laurence James-Woodley</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
+    Blog
+     
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu" role="menu">
+    <li>
+      <a href="hpv.html">HPV Analysis of Human Papomovalisu Virus</a>
+    </li>
+    <li>
+      <a href="FEVRegression.html">Regression Analysis</a>
+    </li>
+  </ul>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li>
+  <a href="https://github.com/ljwoodley">
+    <span class="fa fa-github fa-2x"></span>
+     
+  </a>
+</li>
+<li>
+  <a href="https://www.linkedin.com/in/laurencejwoodley/">
+    <span class="fa fa-linkedin fa-2x"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Regression Analysis of Forced Expiratory Volume</h1>
+
+</div>
+
+
+<div id="introduction" class="section level3">
+<h3>Introduction</h3>
+<p>Forced expiratory volume (FEV) is the amount of air a person can exhale during a forced breath. The amount of air exhaled may be measured during the first (FEV<span class="math inline">\(_1\)</span>), second (FEV<span class="math inline">\(_2\)</span>) or third (FEV<span class="math inline">\(_3\)</span>) seconds of the forced breath. FEV is measured during a pulmonary function test by a diagnostic device called a spirometer, which records the amount of air that passes through the body as the person exhales. FEV<span class="math inline">\(_1\)</span> is the most significant parameter for identifying both the restrictive and obstructive respiratory diseases and is a powerful indicator of increased risk of lung cancer and cardiovascular diseases <a href="http://www.measurement.sk/2010/S1/Kavitha.pdf">(Kavitha, Sujatha &amp; Ramakrishnan, 2008)</a>. Thus, having the ability to predict FEV<span class="math inline">\(_1\)</span> is important when data obtained from spirometric measurements are inconsistent or missing.</p>
+</div>
+<div id="data" class="section level3">
+<h3>Data</h3>
+<p>The <a href="http://ww2.amstat.org/publications/jse/datasets/fev.dat.txt">data</a> used in this analysis was obtained from The Journal of Statistics Education. It consists of a sample of 654 youths, male and female, aged 3 to 19 years old from the area of East Boston during the late 1970s. We attempt to fit a multiple linear regression model for predicting FEV<span class="math inline">\(_1\)</span> based on the four predictors: age, height, sex (Male = 0, Female = 1) and smoke (Non-smoker = 0, Smoker = 1). Note that each subject was asked if he/she smokes while the data was collected. It is also important to note that older subjects will typically have higher FEV<span class="math inline">\(_1\)</span> values.</p>
+</div>
+<div id="model-building" class="section level3">
+<h3>Model Building</h3>
+<div id="model-1" class="section level4">
+<h4>Model 1</h4>
+<p>Let’s begin by splitting the data into a training set (70%) and validation set (30%). A preliminary model containing all four predictors will then be fit to the training data and a graphical residual analysis will be conducted to determine if the regression assumptions of linearity, constant error variance and normality of error terms are satisfied.</p>
+<div class="figure" style="text-align: center">
+<img src="FEVRegression_files/figure-html/unnamed-chunk-1-1.png" alt="Residual Analysis (model 1)" width="672" />
+<p class="caption">
+Residual Analysis (model 1)
+</p>
+</div>
+<p>On inspecting the Residuals vs Fitted plot we see that constant error variance is not satisfied. This is indicated by the funnel shape of the residuals. Non-linearity is also present as shown by the curvature of the blue line which is a smooth fit to the residuals.</p>
+<p>The Normal Q-Q plot and density curve do not exhibit significant departure from normality but the results of the Shapiro-Wilk test indicate that the null hypothesis of normality should be rejected (p-value &lt; 0.05). As the Shapiro-Wilk test is sensitive to outliers and influenced by sample size, the smallest deviation from normality will be significant in a fairly large sample. Thus, the Q-Q plot and density curve give a more accurate description of the normality of the residuals.</p>
+<p>Due to non-constant error variance a transformation on the response variable will be performed. A log transformation as well as a box-cox transformation will be performed in an attempt to achieve the necessary linear regression assumptions.</p>
+</div>
+<div id="model-2" class="section level4">
+<h4>Model 2</h4>
+<p>The main problem with model 1 was non-constant error variance thus a natural logarithm transformation on the response variable may help to remedy this. Additionally, this transformation on the response variable may also help to “straighten out” a curved relationship.</p>
+<div class="figure" style="text-align: center">
+<img src="FEVRegression_files/figure-html/unnamed-chunk-2-1.png" alt="Residual Analysis (model 2 )" width="672" />
+<p class="caption">
+Residual Analysis (model 2 )
+</p>
+</div>
+<p>The Residuals vs Fitted plot in figure 2 shows that the points are randomly scattered about the horizontal axis which indicates that constant error variance has been achieved. The blue line is also straight meaning that non-linearity is no longer an issue. The Breusch-Pagan test for heteroscedasticity resulted in a p-value &gt; 0.05, confirming that constant error variance has been achieved for model 2. The normal Q-Q plot and density curve still show slight departure from normality.</p>
+</div>
+<div id="box-cox-transformation" class="section level4">
+<h4>Box-Cox Transformation</h4>
+<p>The natural logarithm transformation of the response variable in model 2 led to constant error variance but there was still slight non-normality of the error terms . We will try to improve normality by attempting to find the best power transformation on the response variable via the Box-Cox procedure. The Box-Cox procedure estimates <span class="math inline">\(\hat{\lambda}\)</span>, the maximum likelihood estimate of <span class="math inline">\(\lambda\)</span> to use in the power transformation (Kunter, Nachtsheim, Neter &amp; Li, 2005). Thus, transforming <span class="math inline">\(y\)</span> into <span class="math inline">\(y\)</span><sup><span class="math inline">\(\lambda\)</span></sup> will improve the fit of the model.</p>
+<div class="figure" style="text-align: center">
+<img src="FEVRegression_files/figure-html/unnamed-chunk-3-1.png" alt="Figure 3: Box-Cox Plot" width="672" />
+<p class="caption">
+Figure 3: Box-Cox Plot
+</p>
+</div>
+<p>Figure 3 shows the results of the Box-Cox transformation. The plot shows the values of <span class="math inline">\(\lambda\)</span> vs the log-likelihood for model 3. The function draws a line at the value of <span class="math inline">\(\lambda\)</span> that maximizes the log-likelihood as well as lines at the limits of its’ 95% confidence interval. Unfortunately, we cannot tell the value of <span class="math inline">\(\lambda\)</span> from looking at the graph but after a line of code we see <span class="math inline">\(\lambda=\)</span> 0.0202, which is very close to 0. Thus, using the natural logarithm transformation for model 2 was a reasonable choice.</p>
+</div>
+</div>
+<div id="outliers-high-leverage-and-influential-observations" class="section level3">
+<h3>Outliers, High Leverage and Influential Observations</h3>
+<p>Influential observations are cases that may lead to major changes in the fitted regression function if they are removed. The labeled points in the Cook’s distance plot identifies the three observations with the largest Cook’s distance. When observations have high Cook’s distance scores and are to the upper right or lower right of the Residuals vs Leverage plot they are influential to the regression results. Thus, observations 221, 366 and 416 don’t exhibit signs of being influential.</p>
+<div class="figure" style="text-align: center">
+<img src="FEVRegression_files/figure-html/unnamed-chunk-4-1.png" alt="Influential Observations" width="672" />
+<p class="caption">
+Influential Observations
+</p>
+</div>
+<p>We shall further investigate these three observations by conducting a Bonferroni adjusted outlier test on observation 221 as it has the largest absolute studentized residual. We will also look at the DFFITS (measures the influence of an observation on its own fitted value), DFBETA (measures the influence of an observation on a specific regression coefficient) and leverage values of all three observations. As we are working with a fairly large sized dataset an observation is considered influential if the absolute value of its DFFITS or DFBETAS exceeds 1. An observation is a high leverage point if the leverage <span class="math inline">\((h_{ii})\)</span> is more than twice the average, that is, <span class="math inline">\((h_{ii})\)</span> &gt; <span class="math inline">\(2p/n\)</span> where <span class="math inline">\(p\)</span> is the number of parameters and <span class="math inline">\(n\)</span> is the sample size.</p>
+<table class="table table-bordered" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Bonferroni Outlier Test
+</caption>
+<thead>
+<tr>
+<th style="text-align:center;">
+Observation #
+</th>
+<th style="text-align:center;">
+Studentized Residuals
+</th>
+<th style="text-align:center;">
+Bonferroni P-value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center;">
+221
+</td>
+<td style="text-align:center;">
+-3.976
+</td>
+<td style="text-align:center;">
+0.037
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table table-bordered" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>
+Influential Measures
+</caption>
+<thead>
+<tr>
+<th style="text-align:right;">
+Observation #
+</th>
+<th style="text-align:right;">
+DFFITS
+</th>
+<th style="text-align:right;">
+DFBETA Intercept
+</th>
+<th style="text-align:right;">
+DFBETA Age
+</th>
+<th style="text-align:right;">
+DFBETA Height
+</th>
+<th style="text-align:right;">
+DFBETA Sex
+</th>
+<th style="text-align:right;">
+DFBETA Smoke
+</th>
+<th style="text-align:right;">
+Cook’s Distance
+</th>
+<th style="text-align:right;">
+Leverage
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+221
+</td>
+<td style="text-align:right;">
+-0.62
+</td>
+<td style="text-align:right;">
+0.47
+</td>
+<td style="text-align:right;">
+0.48
+</td>
+<td style="text-align:right;">
+-0.55
+</td>
+<td style="text-align:right;">
+0.30
+</td>
+<td style="text-align:right;">
+0.03
+</td>
+<td style="text-align:right;">
+0.075
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+366
+</td>
+<td style="text-align:right;">
+-0.44
+</td>
+<td style="text-align:right;">
+-0.06
+</td>
+<td style="text-align:right;">
+-0.08
+</td>
+<td style="text-align:right;">
+0.09
+</td>
+<td style="text-align:right;">
+-0.16
+</td>
+<td style="text-align:right;">
+-0.34
+</td>
+<td style="text-align:right;">
+0.038
+</td>
+<td style="text-align:right;">
+0.03
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+416
+</td>
+<td style="text-align:right;">
+-0.49
+</td>
+<td style="text-align:right;">
+0.09
+</td>
+<td style="text-align:right;">
+0.10
+</td>
+<td style="text-align:right;">
+-0.11
+</td>
+<td style="text-align:right;">
+0.15
+</td>
+<td style="text-align:right;">
+-0.39
+</td>
+<td style="text-align:right;">
+0.047
+</td>
+<td style="text-align:right;">
+0.02
+</td>
+</tr>
+</tbody>
+</table>
+<p>The null hypothesis of the Bonferroni adjusted outlier test is the observation is an outlier. Based on the results in table 1 we see p-value &lt; 0.05. Thus, the null hypothesis is rejected and we can conclude that there is not enough evidence to state that observation 221 is an outlier.</p>
+<p>The results of table 2 shows that none of the observations exceed one in magnitude, for DFFITS or DFBETA, confirming that they do not exert unnecessary influence on either their own fitted values or on the regression coefficients. Although the leverage value for observation 416 is high leverage, .022 &gt; <span class="math inline">\(2p/n\)</span>, the remaining measures do not consider this point to be influential so there is no need for remedial measures.</p>
+<p>The 10th percentile of an F-distribution with <span class="math inline">\(df_1=5\)</span> and <span class="math inline">\(df_2=452\)</span> is 0.321. As the Cook’s Distance for observations 221, 366 and 416 are well below this cutoff point we can conclude that these observations are non-influential. As the sample size used is fairly large, it is expected that some outliers and high leverage values will exist by chance, but we have shown that these observations don’t exert much influence on the regression estimates. Thus, we have no justification to remove any of these observations.</p>
+</div>
+<div id="evaluating-model-performance" class="section level3">
+<h3>Evaluating Model Performance</h3>
+<p>We shall now inspect the regression output of model 2 to evaluate the performance of the model. Here we can determine how well the model explains the variation in FEV<span class="math inline">\(_1\)</span>, if multicollinearity exists or if any predictors should be dropped from the model.</p>
+<pre><code>## 
+## Call:
+## lm(formula = log(fev) ~ age + height + sex + smoke, data = train.set)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.56902 -0.08919  0.00750  0.09614  0.38562 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) -1.814403   0.094365 -19.227  &lt; 2e-16 ***
+## age          0.024403   0.004086   5.973 4.73e-09 ***
+## height       0.040487   0.002008  20.160  &lt; 2e-16 ***
+## sex          0.031486   0.014093   2.234    0.026 *  
+## smoke       -0.019622   0.025189  -0.779    0.436    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.1472 on 452 degrees of freedom
+## Multiple R-squared:  0.7959, Adjusted R-squared:  0.7941 
+## F-statistic: 440.6 on 4 and 452 DF,  p-value: &lt; 2.2e-16</code></pre>
+<div class="figure" style="text-align: center">
+<img src="FEVRegression_files/figure-html/unnamed-chunk-8-1.png" alt="Figure 4: VIF" width="672" />
+<p class="caption">
+Figure 4: VIF
+</p>
+</div>
+<p>Inspecting the regression results we see:</p>
+<ul>
+<li><p>As we are working with the natural logarithm transformed response, each predicted value of FEV<span class="math inline">\(_1\)</span> is in the natural logarithm scale. Thus, to make inferences about the coefficients we must use the exponentiated values as exponentiation is the inverse of the natural logarithm function. We can say that for a one unit increase in the variable age, holding all other variables constant, we expect a 2.47% increase in FEV<span class="math inline">\(_1\)</span>, since <span class="math inline">\(e^.024403\)</span> = 1.0247. However, as sex and smoke are binary variables the interpretation is different. We say that FEV<span class="math inline">\(_1\)</span> will be 3.20% higher for males (sex = 1) than for females (sex = 0), since <span class="math inline">\(e^.031486\)</span> = 1.0320.</p></li>
+<li><p>For each estimated regression coefficient, the p-value provides an estimate of the probability that the true coefficient is unlikely to be zero. Coefficients with p-values &lt; 0.05 are considered statistically significant, and should be included in the model. All variables are statistically significant except for smoke (p-value &gt; 0.05) but it will not be dropped from the model as it is of practical importance.</p></li>
+<li><p>The Adjusted R-squared indicates that 79.41% of the variation in FEV<span class="math inline">\(_1\)</span> can be explained by model 2. We also see that multicollinearity is not an issue as no predictor has a variance inflation factor (VIF) greater than five.</p></li>
+</ul>
+<p>Based on the high F-statistic and the preceding performance indicators we can conclude that the model is significant and performing fairly well. The residuals are not too large, the Adjusted R-Square is high and multicollinearity is not present.</p>
+</div>
+<div id="model-validation" class="section level3">
+<h3>Model Validation</h3>
+<p>Here we will measure the predictive ability of our model, i.e. its ability to accurately predict FEV<span class="math inline">\(_1\)</span> values for new subjects based on the four predictors: age, height, sex and smoke. We will re-estimate the model fitted to the training data on the validation data. If the mean squared prediction error (MSPR) of the model fitted on the validation data is close to the mean squared error (MSE) of the model fitted on the training data we can conclude that the model is not seriously biased and has good predictive ability. We see that MSPR = 0.0205 for the validation data and MSE = 0.0217 for the training data. Thus, these values are close and the model has good predictive ability. Additionally, the Adjusted R-Squared for the model fitted on the validation data was 84.41%. This is further evidence that model 2 is a good fit to the data. We shall now use the full dataset to determine the final regression equation for predicting FEV<span class="math inline">\(_1\)</span>. The final equation is <span class="math display">\[\log(FEV_1)=-1.944+0.023age+0.043height+0.029sex-0.046smoke\]</span></p>
+<pre><code>## 
+## Call:
+## lm(formula = log(fev) ~ age + height + sex + smoke, data = resp_function)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.63278 -0.08657  0.01146  0.09540  0.40701 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) -1.943998   0.078639 -24.721  &lt; 2e-16 ***
+## age          0.023387   0.003348   6.984  7.1e-12 ***
+## height       0.042796   0.001679  25.489  &lt; 2e-16 ***
+## sex          0.029319   0.011719   2.502   0.0126 *  
+## smoke       -0.046068   0.020910  -2.203   0.0279 *  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.1455 on 649 degrees of freedom
+## Multiple R-squared:  0.8106, Adjusted R-squared:  0.8095 
+## F-statistic: 694.6 on 4 and 649 DF,  p-value: &lt; 2.2e-16</code></pre>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>The purpose of this project was to create a multiple linear regression model for predicting FEV<span class="math inline">\(_1\)</span> values in children between ages 3 and 19. The data was split into a training and validation set. The initial regression model, ran on the training data, showed non-constant error variance which indicated a transformation was needed. A natural logarithm transformation was then performed on the response variable, which led to constant variance in model 2. The influence measures showed no evidence of any observations that could greatly affect the regression coefficients and the variance inflation factors showed no signs of multicollinearity. Based on the comparison of MSE and MSPR we concluded that model 2 was a good fit to the data and that it had good predictive ability. When model 2 was regressed on the full dataset all four predictors were significant and the Adjusted R-Square was 80.95%. Thus, this was an overall good fit, and the model can aid in predicting FEV<span class="math inline">\(_1\)</span> values when the data obtained is inconsistent or missing.</p>
+</div>
+<div id="references" class="section level3">
+<h3>References</h3>
+<p>Kavitha, A., Sujatha, C. M., &amp; Ramakrishnan, S. (2010). Prediction of Spirometric Force Expiratory Volume (FEV1) Data Using Support Vector Regression. Measurement Science Review, 10(2). Retrieved from <a href="http://www.measurement.sk/2010/S1/Kavitha.pdf" class="uri">http://www.measurement.sk/2010/S1/Kavitha.pdf</a>.</p>
+<p>Kutner, H., Nachtsheim, C., Neter, J., &amp; William, L. (2005). Applied Linear Statistical Models (5th ed.). Boston: McGraw-Hill Irwin.</p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
