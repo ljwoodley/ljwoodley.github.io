@@ -1,4 +1,5 @@
 name: "Laurence James-Woodley"
+output_dir: "."
 navbar:
   title: "Laurence James-Woodley"
   type: inverse
@@ -19,4 +20,3 @@ navbar:
    html_document:
     theme: flatly
     css: styles.css
-    
