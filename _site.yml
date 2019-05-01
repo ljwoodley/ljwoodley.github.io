@@ -7,7 +7,7 @@ navbar:
   left:
     - text: "Blog"
       menu:
-        - text: "HPV Analysis of Human Papomovalisu Virus"
+        - text: "HPV Analysis of Human Papillomavirus Virus"
           href: hpv.html
         - text: "Regression Analysis"
           href: FEVRegression.html
