@@ -5,13 +5,13 @@ navbar:
   type: inverse
   href: index.html
   left:
-    - text: "Blog"
-      menu:
-        - text: "HPV Analysis of Human Papillomavirus Virus"
-          href: hpv.html
+    - text: "BLOG"
+      href: blog.html
   right:
     - icon: fa-github fa-2x
       href: https://github.com/ljwoodley
     - icon: fa-linkedin fa-2x
       href: https://www.linkedin.com/in/laurencejwoodley/
+    - icon: fas fa-envelope fa-2x
+      href: "mailto:laurencejwoodley@gmail.com"
  

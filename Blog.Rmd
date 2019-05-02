@@ -1,0 +1,18 @@
+---
+output: 
+    html_document:
+        css: styles.css
+---
+<br>
+
+<article>
+
+<h3><a href="hpv.html">Human Papillomavirus Vaccine (HPV) Completion Rate</a></h3>
+<p>This post attempts to analyze the characteristics of non-pregnant females between the ages of 11 and 26 who started the three-shot sequence of the HPV vaccine and subsequently completed the sequence within 12 months. The data used was collected by the Johns Hopkins Institutional Review Board between January 1, 2007 and June 30, 2008...</p>
+<a class="btn btn-outline-primary btn-sm" href="hpv.html">Read More</a>
+
+</article>
+
+
+
+
