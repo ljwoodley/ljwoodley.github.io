@@ -6,7 +6,7 @@ navbar:
   href: index.html
   left:
     - text: "BLOG"
-      href: blog.html
+      href: Blog.html
   right:
     - icon: fa-github fa-2x
       href: https://github.com/ljwoodley
