@@ -9,14 +9,9 @@ navbar:
       menu:
         - text: "HPV Analysis of Human Papillomavirus Virus"
           href: hpv.html
-        - text: "Extracting Data From Web-Based PDF Files"
-          href: ballotscast.html
   right:
     - icon: fa-github fa-2x
       href: https://github.com/ljwoodley
     - icon: fa-linkedin fa-2x
       href: https://www.linkedin.com/in/laurencejwoodley/
-  output:
-   html_document:
-    theme: flatly
-    css: styles.css
+ 
