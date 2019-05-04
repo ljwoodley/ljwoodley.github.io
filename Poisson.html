@@ -9,9 +9,10 @@
 <meta name="generator" content="pandoc" />
 
 
+<meta name="author" content="Laurence James-Woodley" />
 
 
-<title></title>
+<title>An Application of Poisson Distribution</title>
 
 <script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -22,6 +23,8 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
 
 <style type="text/css">code{white-space: pre;}</style>
 <style type="text/css">
@@ -315,13 +318,48 @@ $(document).ready(function () {
 
 
 
+<h1 class="title toc-ignore">An Application of Poisson Distribution</h1>
+<h4 class="author">Laurence James-Woodley</h4>
 
 </div>
 
 
-<div id="ljwoodley.github.io" class="section level1">
-<h1>ljwoodley.github.io</h1>
-<p>This is my personal website.</p>
+<div id="background" class="section level3">
+<h3>Background</h3>
+<p>A local testing center, accommodates a bi-weekly computerized psychology test. The test occurs on Monday and Friday from 7:30 pm to 9:30 pm. On reviewing the data for the last 25 Fridays, on which the test was available, the manager noticed that the number of people that took the test was drastically lower than the number of people that took the test on Monday of the same week. It is costly to hire a proctor for this test so the manager is considering making the test available only on Mondays. The testing center can accommodate a maximum of 20 people and receives a fee of $25 for every person that takes the test. The proctor is paid an hourly rate of $10. As per the employee rules, the proctor must arrive 15 minutes before the exam to check in candidates, and spend an additional 15 minutes after the exam collecting exams and completing reports. The manager has decided that he will cancel the test, on Fridays, if the chance that the testing center makes a profit of $100 or more, on any given Friday, is below 75%. The number of people that took the test on the last 25 Fridays is</p>
+<pre><code>         10  8  9  9  2 10  9  3  0  5  1  8  9  5  4  8  9  7  5  2  9 10  9  4  3</code></pre>
+<p>How can we calculate the probability that the testing center makes a profit of at least $100, on any given Friday, using the given information?</p>
+</div>
+<div id="algebra" class="section level3">
+<h3>Algebra</h3>
+<p>Before we begin thinking about how to determine the probability of making a profit, we need to find out how many people are needed in order to make a profit of at least $100. Based on the information, we know that the test lasts for 2 hours and that the proctor is required to work an additional 30 minutes. Thus, the proctor is paid $25 for each session.</p>
+<p>Now let’s consider <span class="math inline">\(c\)</span> to be the amount of money that’s paid to the proctor and <span class="math inline">\((p)\)</span> as the amount of money the testing center receives per candidate. Also, let <span class="math inline">\(x\)</span> represent the number of candidates taking the exam and let <span class="math inline">\(P\)</span> be the profit. Then, using the profit function to solve for <span class="math inline">\(x\)</span>:</p>
+<p><span class="math display">\[P(x) = px - c\]</span></p>
+<p><span class="math display">\[100 = 25x -25\]</span></p>
+<p><span class="math display">\[x = 5\]</span></p>
+<p>We are able to determine that at least five people must take the exam on any given Friday for the testing center to make a profit of $100.</p>
+</div>
+<div id="statistical-framework" class="section level3">
+<h3>Statistical Framework</h3>
+<p>Note, that on any given Friday, the number of individuals, N, in the area is large. Additionally, on any given Friday, person <span class="math inline">\(i\)</span> has probability <span class="math inline">\(p_i\)</span> of taking the psychology test. Also, all the <span class="math inline">\(p_i\)</span>’s are small since most individuals will not take a test at all, and for those who do, the chance that they take this specific psychology test, at this testing center is small. Let <span class="math inline">\(X\)</span> be the total number of individuals taking a test on that day. Thus, <span class="math inline">\(X\)</span> is the sum of <span class="math inline">\(N\)</span> independent Bernoullis, each having small probability of success. Therefore, the distribution of <span class="math inline">\(X\)</span> is approximately Poisson, with parameter <span class="math inline">\(\lambda\)</span>. The probability that at least five people take the test resolves to</p>
+<p><span class="math display">\[P(X\geqslant 5 ) = 1-\exp(-\lambda)\frac{\lambda^0}{0!}-\exp(-\lambda)\frac{\lambda^1}{1!}-\exp(-\lambda)\frac{\lambda^2}{2!}-\exp(-\lambda)\frac{\lambda^3}{3!}-\exp(-\lambda)\frac{\lambda^4}{4!}\]</span></p>
+<p>Unfortunately, we need to estimate <span class="math inline">\(\lambda\)</span>. Let <span class="math inline">\(X_i\)</span> be the total number of cases for Friday <span class="math inline">\(i\)</span>. Then <span class="math inline">\(X_1...X_{25}\)</span> will be the number of people taking the psychology test on Friday <span class="math inline">\(i\)</span>. Additionally, the <span class="math inline">\(X_i\)</span>’s are independent and are all Poisson with the same <span class="math inline">\(\lambda\)</span>. Furthermore, the mean of the Poisson distribution is <span class="math inline">\(\lambda\)</span>, i.e. <span class="math inline">\(E(X_i)=\lambda\)</span> and the Law of Averages state that with high probability <span class="math inline">\(\bar{X}\)</span> is close to <span class="math inline">\(\lambda\)</span>, so we can estimate <span class="math inline">\(\lambda\)</span> by using <span class="math inline">\(\bar{X}\)</span>.</p>
+<p>Now that the framework has been established, let’s do the necessary calculations in R.</p>
+<pre class="r"><code>#make a vector of the values
+count &lt;- c(10,  8,  9,  9,  2, 10,  9,  3,  0,  5,  1,  8,  9,  5,  4,  8,  9,  7,
+       5,  2,  9, 10,  9,  4,  3)
+
+#calculate the mean
+x_bar &lt;- mean(count)
+
+#apply the poisson function
+ppois(5, lambda=x_bar, lower=F)</code></pre>
+<pre><code>## [1] 0.6042593</code></pre>
+<p>The chance that the testing center makes a profit of at least $100, on any given Friday, is 60.4%.</p>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>This problem shows how the Poisson Distribution can be used to solve common problems. Note that this framework only worked because the number of people, <span class="math inline">\(N\)</span>, in the area is large and the number of Fridays is also large. This is crucial, as the number of Fridays needs to be large enough to apply the Law of Averages, which states that <span class="math inline">\(\bar{X}\)</span> is close to <span class="math inline">\(\lambda\)</span>, and therefore, <span class="math inline">\(\exp(-\bar{X})\)</span> is, with high probability, very close to <span class="math inline">\(\exp(-\lambda)\)</span>.</p>
 </div>
 
 

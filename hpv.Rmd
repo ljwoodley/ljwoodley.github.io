@@ -31,7 +31,7 @@ Let's first load and format the data. We'll then create a bar graph and do a pro
 ```{r, fig.height = 4, fig.align='center'}
 
 #import and format data. 
-df <- read_csv("projects_data/hpv_data.csv") %>%
+df <- read_csv("data/hpv_data.csv") %>%
   #convert all variable to lowercase
   rename_all(tolower) %>% 
   #give variable categories proper names
