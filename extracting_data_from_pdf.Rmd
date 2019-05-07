@@ -1,0 +1,164 @@
+---
+title: "Extracting Data From Web-Based PDF Files "
+output: html_document
+---
+
+![](https://resolutiontelevision.com/wp-content/uploads/2017/09/web-service-short-1024x556.jpg)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+
+options(knitr.table.format="html")
+```
+
+###Introduction
+Many times there are multiple data sets that we'd like to download from a website. Sometimes we are fortunate enough that the data is stored in multiple csv files within a zipped folder or under a common link. But what if the data is not centrally stored in a single zipped file or is not in csv format? For this post we will extract data that is stored in multiple pdf files from the [Florida Division of Elections website](http://dos.myflorida.com/elections/data-statistics/elections-data/general-election-summaries/).
+
+
+###Pulling the data
+Let's utilize the `html_nodes` and `html_attr` functions from the `rvest` package to extract all links from the webpage then zoom in on only the pdf documents.
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(rvest)
+library(scales)
+library(pdftools)
+
+url <- "http://dos.myflorida.com/elections/data-statistics/elections-data/general-election-summaries/"
+
+#extract link names from page
+links <- read_html(url) %>%
+  html_nodes("a") %>% 
+  html_attr("href")
+
+#detect pdf files we need
+pdf_links <- links[str_detect(links, ".pdf")]
+pdf_links
+```
+
+Based on the output we see that there are 28 unique links with the .pdf extension. Our main focus is the voter turnout data for the 2004 to 2016 general elections. This data is contained in the `ballotscast.pdf` for 2004 to 2014 and in `summaries-ballots-by-type-activity.pdf` for 2016. Now that we know which links contain the relevant data we can extract them using `str_detect`. Let's use *ballotscast* and *type* as keywords for identifying the necessary pdf files.
+
+```{r}
+data_links <- pdf_links[str_detect(pdf_links,"ballotscast|type")]
+data_links
+```
+
+Great! We are now left with seven links. Upon viewing all of the pdf files we see that each file has the data in the same sequence of columns. Thus it's easy to create a function, `extract_data`, to extract the data from each pdf file and turn it into a dataframe. The logic follows:
+
+1. Append the .pdf protion of each link to the base url and  use `pdf_text` to read the lines of each file
+
+2. Build a dataframe where each row corresponds to a line in the pdf file  
+
+3. Crete a regular expression that extracts any row that contains vote data. For example, `alachua 50,491 51,097 29,040 993`, is a row that contains vote data. We see that it's the county name followed by four different vote counts. For data from 2004 to 2010 there would only be three vote counts as provisional data was not included for these years
+
+4. Create regular expressions to extract the county and number of votes from each row. Additionally, we'll extract the year from the `data_links` and append it to the dataframe
+
+5. Use `map_df` to execute this function on each of the `data_links` and return a dataframe of vote data from all the years.
+
+```{r}
+extract_data <- function(data_links){
+  
+  txt_file <- pdf_text(paste0("http://dos.myflorida.com", data_links))
+  
+  raw_txt <- str_split(txt_file, "\n") %>% 
+    unlist() %>% 
+    tibble() %>%  
+    rename("col1" = ".") %>% 
+    mutate_all(tolower) %>%   
+    mutate(col1 = str_squish(str_remove_all(col1, ",")),
+           vote_data = str_detect(col1, "\\w+(\\s\\d+){3,4}"))  %>% 
+    filter(vote_data == TRUE) %>% 
+    mutate(vote_count = str_extract(col1, "(\\d+\\s){1,}\\d+"),
+           county = str_extract(col1, "\\w+( |.)?( )?[[:alpha:]]+"),
+           year = str_extract(data_links, "20\\d{2}"))  %>%  
+    filter(!str_detect(county,"total")) %>%
+    separate(vote_count, c("At Polls", "Early", "Absentee", "provisional")) %>%
+    select(county,year, `At Polls`, Early, Absentee)
+}
+
+df <- map_df(data_links, extract_data)
+
+head(df)
+```
+
+Now let's inspect the data to ensure it's correct. There are 67 counties in Florida and we are extracting vote data for seven years. Thus, each county should appear exactly seven times in the dataframe.
+
+```{r}
+df %>% 
+  count(county) %>% 
+  filter(n != '7')
+```
+
+It appears that miami-dade has two different formattings. Let's change this and recheck the data.
+
+```{r}
+df$county <- str_replace(df$county, "miami‐dade", "miami-dade") 
+
+df %>% 
+  count(county) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "400px")
+```
+
+
+\
+
+**Finally, the data is in a dataframe! Let's pause for a round of applause.**
+
+\  
+
+<center>
+![](https://media.giphy.com/media/l3q2umc327t2nzSOQ/giphy.gif)
+</center>
+
+
+
+###Data Visualization
+
+Let's visualize the data to reveal any trends
+
+```{r, fig.width = 12, fig.height = 8}
+data <- gather(df, vote_type, votes, 3:5, -c(1:2))
+
+to_plot <- data %>% 
+  group_by(year,vote_type) %>% 
+  summarise(total = sum(as.numeric(votes))) %>% 
+  mutate(percentage = total/sum(total))
+
+to_plot$year <- factor(to_plot$year, levels = c("2004","2006","2008","2010","2012","2014","2016"))
+
+ggplot(to_plot, aes(x = year, y = total, fill = vote_type))+
+  geom_col()+
+  labs(x = 'Year',y = 'Total Voters', title = 'Florida\'s\ Yearly Voter Turnout\n (2004 - 2016)',
+       fill = 'Vote Method')+
+  scale_y_continuous(labels = comma)+
+  geom_text(aes(label = paste0(round(percentage*100),"%")), position = position_stack(vjust = 0.5))+
+  scale_fill_brewer(palette = "Dark2")+
+  theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5),
+        text = element_text(size = 15))
+
+```
+
+Based on the above chart we observe a few things:
+
+
+ + The turnout for years 2004, 2008, 2012 and 2016 is higher than the other years. This is because these were presidential election years and people are more likely to vote in a presidential election than in a midterm general election.
+ 
+ + There is an upward trend to the data, especially for presidential election years. The turnout in 2016 was almost 10,000,000. 
+ 
+ + Election day voting has been decreasing for each of the presidential and midterm elections. In 2004, 64% of voters voted on election day but only 31% of voters voted on election day in 2016. This is about a 50% drop in election day voting.
+ 
+ + Early voting accounted for 40% of all voters in 2016 compared to 28% in 2012. The 2016 presidential election was somewhat of a political storm and turnout was expected to be significantly higher than usual. As a result, a larger portion of people may have chosen early voting to avoid the hassle of voting on election day.  
+
+###Conclusion
+At times the data needed for analysis is not readily available. As data analysts, data scientists, and sometimes statisticians it is part of our jobs to be equipped with the skills needed to extract and tidy data in both structured and unstructured format. This post provided a brief introduction on how we can extract structured data from web-based files, tidy and then visualize the data to gain insights.
+
+-------
+An interactive chart was created to allow the user to view the turnout within a specific county and can be found [here](https://laurencejames.shinyapps.io/CountyTurnout/)
