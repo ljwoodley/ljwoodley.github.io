@@ -9,12 +9,9 @@ output:
 <div class = "row">
   
 <div class = "col-md-3">
-<br><br> 
-<img class="thick-green-border" src=images/headshot.jpg>
+<br><br> ![](images/headshot.jpg)
 </div>
-
-
-
+  
 <div class = "col-md-9">
 <div class = "blue">
 <br><br>
