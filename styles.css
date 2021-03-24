@@ -1,0 +1,79 @@
+h1 {
+  text-align: center;
+}
+
+p {
+  font-size: 1.1em;
+}
+
+h5 {
+    font-weight:normal;
+    
+}
+
+.links {
+    color: #006699;
+    font-size: 22px;
+}
+
+.btn-outline-primary {
+  border-color: black;
+  color: black;
+  background-color: white;
+}
+
+.btn-outline-primary:hover {
+  border-color: grey;
+  background-color: whitesmoke;
+  color: black;
+}
+
+/* -----------HERO IMAGE AT TOP OF PAGE -----------*/
+
+/* LARGE HERO IMAGE AT TOP OF PAGE*/
+
+.hero-image {
+    position: relative;
+    margin-bottom: 2em;
+    /* liner gradient tints the image darker for readability*/
+    background-image: linear-gradient( rgba(0,0,0,.2), rgba(0,0,0,.2) ), url(images/vortex.gif); 
+    height: 350px;
+    background-size: cover;
+    background-color: #141c25f2;
+    background-position: center center;
+    display: flex; /* Change to `display: none` for no hero image */
+    justify-content: center;
+    align-items: center;
+}
+
+.top-text {
+  position: relative;
+  letter-spacing: 0.065em;
+  line-height: 1em;
+  font-size: 25px;
+  text-transform: uppercase;
+  text-align: center;
+  display: block;
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  font-weight: bold;
+}
+
+.mid-text {
+  position: relative;
+  font-size: 20px;
+  padding-bottom: 0.5em;
+  text-align: center;
+  display: block; 
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.button-text {
+  position: relative;
+  font-size: 15px;
+  padding-bottom: 0.5em;
+  text-transform: uppercase;
+  text-align: center;
+  display: block; 
+}

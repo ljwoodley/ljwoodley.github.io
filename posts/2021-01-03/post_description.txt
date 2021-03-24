@@ -1,0 +1,1 @@
+As part of the final project for my Data Science For Clinical Research class in graduate school I needed to create a machine learning model capable of detecting asthmatic subjects. The purpose of this project was not to create a production ready model using state-of-the art machine learning algorithms but to understand the fundamentals of data science.

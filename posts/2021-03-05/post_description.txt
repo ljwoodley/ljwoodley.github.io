@@ -1,0 +1,1 @@
+This post will be the first in a series of posts demonstrating how I approach data wrangling problems. As an analyst in a clinical research setting I spend a great majority of my time cleaning and transforming data for analysis and thought it'd be a good idea to start documenting my approach to various types of data.

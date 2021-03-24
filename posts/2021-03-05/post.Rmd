@@ -1,0 +1,167 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: ../navbar.html
+    css: ../styles.css
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+# Parsing Data From A PDF
+
+This post will be the first in a series of posts demonstrating how I approach data wrangling problems. As an analyst in a clinical research setting I spend a great majority of my time cleaning and transforming data for analysis and thought it'd be a good idea to start documenting my approach to various types of data.
+
+### The Data
+
+The focus of this post will be on parsing data from the attached two paged pdf file that I've taken from the [Minnesota Transportation Alliance Membership Directory & Funding Guide](https://www.transportationalliance.com/membership/directory) and transforming it into a tidy dataset.
+
+![](county_engineers.pdf){width="100%" height="600"}
+
+Based on a cursory view of the file I noticed that each entry begins with the name of the county and ends with the email. The six variables for each entry occur in the following order:
+
+-   County
+
+-   Name
+
+-   Job title. This can be be on line three or lines three and four. Carver County is one example where the job title spans two lines
+
+-   Phone number. This can be on line four or line five depending on the number of lines the job title spans
+
+-   Address. This can be on lines five and six or lines six and seven depending on the number of lines the job title spans
+
+-   Email address. 
+
+### Load Data 
+```{r}
+library(tidyverse)
+library(kableExtra)
+
+#  each page is saved as a list element
+raw_file <- pdftools::pdf_data("county_engineers.pdf")
+
+# select the first pdf page
+raw_file[[1]] %>%
+  select(text, space) %>% 
+  rownames_to_column() %>% 
+  kable(caption = "Table 1") %>%
+  kable_styling(full_width = FALSE) %>% 
+  scroll_box(height = '600px')
+```
+
+Table 1 shows the data from page 1 of the pdf as parsed by `pdftools::pdf_data`. The first two rows represent the page heading and thus should be removed. When `space == TRUE` for row `n` it means that the information in row `n + 1` is on the same line as row `n`. When `space == FALSE` for row `n` it means that the information in row `n + 1` is on a new line.
+
+### Identify Unique Observations
+
+For the purpose of this post an observation refers to a unique person along with the identifiers for that person. Notice from rows 18 and 35 in Table 1 that the email signifies the end of an observation.
+
+Let's create the field `person_identifier` which uses the email address as a unique identifier for each observation. This identifier is constructed by detecting rows with an email address and then filling NA rows, with the email address, in an upward direction from that specific row. The data can then be split on `person_identifier` to obtain a list that contains a dataframe for each observation.
+
+```{r}
+get_unique_observation <- function(raw_file) {
+  unique_observation <- raw_file %>% 
+    # remove first two rows as it's the page heading
+    slice(-c(1:2)) %>%
+    select(text, space) %>%
+    mutate(person_identifier = if_else(
+      # an email ends every observation
+      str_detect(text, "\\@"),
+      text,
+      NA_character_
+    )) %>% 
+    # fill up from the row that the email occurs on to identify all data relating to an observation
+    fill(person_identifier, .direction = "up") %>% 
+    # remove rows with NA as it does not contain data for an observation
+    filter(!is.na(person_identifier)) %>% 
+    # split on each observation
+    split(.$person_identifier)
+  
+  return(unique_observation)
+}
+```
+
+Let's see what this list of dataframes looks like.
+
+```{css, echo=FALSE}
+.scroll-600 {
+  max-height: 600px;
+  overflow-y: auto;
+  background-color: inherit;
+}
+```
+
+```{r, class.output="scroll-600"}
+unique_observations <- map(raw_file, get_unique_observation) %>% 
+  flatten()
+
+unique_observations
+```
+
+### Transform To Tidy Dataset
+Now that each observation is a dataframe the individual list elements can be transformed to create a tidy data set where each observation has its own row and each variable is a column based on the following rules:
+
+-   Space must never be `FALSE` for the first row of a dataframe. If this occurs it means that the first row does not contain information about the county and should be deleted. This is visible for the fourth list element `darrick.anderson@co.cass.mn.us`.
+
+-   Consecutive `space == FALSE` must only occur on the last two rows of each dataframe. If it occurs anywhere before then `space` must be converted to NA for the first `FALSE` occurrence. Consecutive occurrences of `FALSE` is visible in rows 8 and 9 of list element `lrobjent@co.carver.mn.us`.
+
+-   `space == FALSE` represents the end of the data for each variable. The column `variable_type` will be created to identify each variable. Values are then filled up to create unique groups.
+
+```{r}
+get_county_engineers <- function(unique_observations) {
+county_engineers <- unique_observations %>%  
+    select(text, space) %>% 
+    filter(!(row_number() == 1 & !space)) %>%
+    mutate(space = if_else(!space, space, NA)) %>%
+    mutate(lead_space = lead(space, 1)) %>%
+    # if two consecutive rows, excluding the last two rows, are false convert the 
+    # first row to NA
+    mutate(row_to_make_na = if_else(space == lead_space & row_number() < (n() - 2) , TRUE, NA))  %>%
+    mutate(space = if_else(!is.na(row_to_make_na), NA, space)) %>%
+    select(-lead_space, -row_to_make_na) %>%
+    group_by(space) %>% 
+    mutate(variable_type = if_else(!space, 1:n(), NA_integer_)) %>% 
+    ungroup() %>%
+    fill(variable_type, .direction = "up") %>%
+    # append row number to ensure each row has unique name for pivoting
+    mutate(variable_type = case_when(
+      variable_type == 1 ~ str_c("county_", row_number()),
+      variable_type == 2 ~ str_c("name_", row_number()),
+      variable_type == 3 ~ str_c("job_title_", row_number()),
+      variable_type == 4 ~ str_c("phone_", row_number()),
+      variable_type == 5 ~ str_c("street_address_", row_number()),
+      variable_type == 6 ~ str_c("city_state_zip_", row_number()),
+      variable_type == 7 ~ "email"
+    )) %>% 
+    select(text, variable_type) %>% 
+    pivot_wider(names_from = variable_type, values_from = text) %>%
+    unite("county", starts_with("county"), sep = " ") %>%
+    mutate(county = str_remove_all(county, "County")) %>% 
+    unite("name", starts_with("name"), sep = " ") %>%
+    unite("title", starts_with("job"), sep = " ") %>%
+    unite("phone", starts_with("phone"), sep = "-") %>%
+    unite("address", matches("street|city"), sep = " ")
+
+return(county_engineers)
+}
+
+```
+
+
+```{r}
+county_engineers <- map_df(unique_observations, get_county_engineers)
+
+county_engineers %>%
+  arrange(county) %>% 
+  kable() %>%
+  kable_styling(full_width = FALSE) %>% 
+  scroll_box(height = '600px')
+```
+
+#

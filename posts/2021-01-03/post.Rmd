@@ -1,0 +1,650 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: ../navbar.html
+    css: ../styles.css
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+# From SQL to Python: Data Science 101
+
+
+As part of the final project for my Data Science For Clinical Research class in graduate school I needed to create a machine learning model capable of detecting asthmatic subjects. The purpose of this project was not to create a production ready model using state-of-the art machine learning algorithms but to understand the fundamentals of data science. These fundamentals are broken down into three main parts:
+
+  + Extract data from a database
+  + Clean and transform the data
+  + Apply and understand various techniques used in model building and evaluation
+
+The class instructor gave us the option to complete this project with the programming language of our choice. The only requirements were to do a class presentation describing the steps taken, submit a document containing all code and output and to use at least two machine learning algorithms. This post represents both the presentation and document submission requirements of the project. I decided to use R for the data extraction and transformation steps due to the numerous R packages that make connecting to databases or transforming data extremely easy. For the machine learning portion I was a bit conflicted between `tidymodels` in R and `scikit-learn` in Python. Ultimately, I decided to go with Python as one of the main reasons for taking this class was to improve my Python skills. Enjoy!
+
+# {.tabset}
+
+## Create OHDSI Database
+Let's begin by creating the `ohdsi` database from the MySQL data dump. The class instructor provided us with the 900 MB MySQL data dump and I've upload it to [google drive](https://drive.google.com/file/d/1xGpyWld_zdj65wx8fBk8INitaO90XTlY/view?usp=sharing){target="_blank"} for anyone that would like to experiment with the data or recreate this analysis. I have MySQL set up locally and have executed the following commands from the command line to create the database.
+
+```
+mysql -u root
+
+create database ohdsi;
+
+use ohdsi;
+
+# import the database
+source ./data/ohdsi_sample.sql;
+
+# confirm that tables were created
+show tables;
+```
+
+
+## Data Extraction & Transformation {.tabset .tabset-pills}
+
+### Load Libraries and Connect to Database
+```{r}
+library(tidyverse)
+library(RMariaDB)
+library(DBI)
+library(lubridate)
+library(kableExtra)
+library(janitor)
+library(gtsummary)
+library(recipes)
+library(rsample)
+library(reticulate)
+
+# connect to database
+con <- dbConnect(MariaDB(),
+                 dbname = 'ohdsi',
+                 host = 'localhost',
+                 user = Sys.getenv('DB_USER'),
+                 password = Sys.getenv('DB_PASSWORD'))
+```
+
+```{r}
+dbListTables(con, "ohdsi")
+```
+ There are multiple clinical data tables available but for this project only the following will be used:
+
+   1. concept
+   1. condition_era
+   1. condition_occurrence
+   1. drug_era
+   1. measurement
+   1. person
+
+The data dictionary for each table can be found [here.](https://ohdsi.github.io/CommonDataModel/cdm531.html#clinical_data_tables){target="_blank"}
+
+### Identify Cases and Controls
+As the goal is to create a model that can predict whether or not a subject has asthma the first step will be to identify subjects as cases (asthma present) or controls (asthma not present). The `condition_occurrence` table will be queried to return all the conditions for each subject. The `concept` table will also be joined to the `condition_occurrence` table to get a descriptive name for each condition. If a subject has at least one condition that matches the string `asthma` the subject will be tagged as a case otherwise the subject will be a control.
+
+```{r}
+sql <- "
+select
+  person_id,
+  lower(concept_name) as concept_name,
+  condition_start_date,
+  case
+    when lower(concept_name) like '%asthma%' then 'case'
+    else 'control'
+  end as status
+from
+  condition_occurrence
+  -- join to replace id with names
+  left join concept on condition_concept_id = concept_id
+order by
+  person_id, status, condition_start_date
+"
+
+condition_occurence <- dbGetQuery(con, sql)
+
+kable(head(condition_occurence, 20), caption = "Table 1") %>%
+  kable_styling(full_width = FALSE)
+```
+
+Notice the `order by` clause in the SQL query. This was necessary as a subject can have multiple diagnoses which can lead to the subject being tagged as both a case and a control. Subject #2 is evidence of this as shown in __Table 1__. Thus, if a subject has at least one asthma diagnosis we'd like to keep the initial occurrence of the asthma diagnosis. If a subject does not have an asthma diagnosis we'd like to keep the first diagnosis for that subject.
+
+```{r}
+person_status <- condition_occurence %>%
+  distinct(person_id, .keep_all = TRUE)
+
+kable(head(person_status), caption = "Table 2") %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Demographics
+Query the `person` table to get `gender`, `race` and `year_of_birth`. An additional variable named `age_at_diagnosis` will also be created based on the difference in `condition_start_date` and `year_of_birth`.
+
+```{r}
+sql <- "
+select
+  person_id,
+  c1.concept_name as gender,
+  c2.concept_name as race,
+  year_of_birth
+from
+  person
+  left join concept c1 on gender_concept_id = c1.concept_id
+  left join concept c2 on race_concept_id = c2.concept_id
+"
+person <- dbGetQuery(con, sql)
+
+demographics <- person %>%
+  left_join(person_status %>%
+              select(person_id, condition_start_date),
+            by = "person_id") %>%
+  mutate(age_at_diagnosis = year(condition_start_date) - year_of_birth) %>%
+  select(-c(year_of_birth, condition_start_date))
+
+kable(head(demographics), caption = "Table 3") %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Drugs
+Query the `drug_era` table to return all drugs that a subject has taken.
+```{r}
+sql <- "
+select
+  person_id,
+  lower(concept_name) as drug,
+  drug_era_start_date
+from
+  drug_era
+  left join concept on drug_concept_id = concept_id
+"
+
+drug_era <- dbGetQuery(con, sql)
+
+kable(head(drug_era), caption = "Table 4") %>%
+  kable_styling(full_width = FALSE)
+```
+
+Based on __Table 4__ let's filter to all drugs taken within two years after the first diagnosis and then keep only the top 10 drugs for cases and the top 10 drugs for controls
+```{r}
+top_drugs_by_person_status <- person_status %>%
+  select(person_id, status, condition_start_date) %>%
+  left_join(drug_era, by = "person_id") %>%
+  # get time between the date a drug was started and the date a diagnosis was provided
+  mutate(days_passed = difftime(
+    drug_era_start_date, condition_start_date, units = "days")) %>%
+  # filter to all drugs taken within two years after condition_start_date
+  filter(between(days_passed, 0, 365*2)) %>%
+  count(status, drug) %>%
+  group_by(status) %>%
+  # get the top 10 drugs by person status
+  top_n(10, wt = n) %>%
+  ungroup() %>%
+  distinct(drug) %>%
+  arrange(drug)
+
+kable(top_drugs_by_person_status, caption = "Table 5") %>%
+  kable_styling(full_width = FALSE)
+```
+
+Finally, let's create a data frame where each row represents a subject and the columns are the drugs shown in __Table 5__. The columns are binary where `1` specifies that the subject has taken that drug within two years of the diagnosis and `0` specifies the opposite.
+```{r}
+drugs_taken <- drug_era %>%
+  inner_join(top_drugs_by_person_status, by = "drug") %>%
+  # tag the subject as being on drug
+  mutate(on_drug = 1) %>%
+  # ensure that person drug combination is unique
+  distinct(person_id, drug, .keep_all = TRUE) %>%
+  # convert from long to wide data frame
+  pivot_wider(
+    -drug_era_start_date,
+    names_from = drug,
+    values_from = on_drug,
+    # tag subject as not on drug
+    values_fill = 0,
+    names_sort = TRUE
+  )
+
+kable(head(drugs_taken), caption = "Table 6") %>%
+  kable_styling() %>%
+  scroll_box(width = "100%")
+```
+
+<br>
+
+### Diagnoses
+Query the `condition_era` table to return all diagnoses for a subject. Additionally, all instances of asthma will be removed from `condition_era` as there should not be any reference to an asthma diagnosis within the data used in the machine learning process.
+```{r}
+sql <- "
+select
+  person_id,
+  lower(concept_name) as diagnosis,
+  condition_era_start_date
+from
+  condition_era
+  left join concept on condition_concept_id = concept_id
+where
+ concept_name not like '%asthma%'
+"
+
+condition_era <- dbGetQuery(con, sql)
+
+kable(head(condition_era), caption = "Table 7") %>%
+  kable_styling(full_width = FALSE)
+```
+
+To identify other conditions people with asthma may experience I've chosen a list of conditions based on online research. This list is not exhaustive and may not be 100% correct. I have absolutely zero domain knowledge in clinical research but, with Google as my sidekick, I was able to determine clinically relevant conditions that may be useful for predicting asthma status:
+
++ These four diagnoses seem to fall under the category of `conduction disorder`:
+
+    + `atrial fibrillation` -
+      [source 1](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6143075/){target="_blank"} &
+      [source 2](https://www.ahajournals.org/doi/10.1161/CIRCEP.119.007685#:~:text=Asthma%20and%20atrial%20fibril                 lation%20(AF,baseline%20markers%20of%20systemic%20inflammation)){target="_blank"}
+
+    + `chest pain`/`congestive heart failure` -
+    [source 1](https://erj.ersjournals.com/content/21/3/473){target="_blank"},
+    [source 2](https://my.clevelandclinic.org/health/diseases/6424-asthma){target="_blank"} &
+    [source 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1878501/){target="_blank"}
+
+    + `cornoary arteriosclerosis` - [source 1](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5469478/#:~:text=Asthma%20also%20has%20been%20found,women%20have%20coronary%20artery%20spasm){target="_blank"}
+
++ `gastroesophageal reflux disease` - [source 1](https://www.aaaai.org/conditions-and-treatments/related-conditions/gastroesophageal-reflux-disease){target="_blank"} & [source 2](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5395714/){target="_blank"}
+
++ `malaise and fatigue` - [source 1](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6306949/){target="_blank"}
+
+```{r}
+
+dxs <- c(
+  "atrial fibrillation",
+  "chest pain",
+  "conduction disorder",
+  "congestive heart failure",
+  "coronary arteriosclerosis",
+  "gastroesophageal reflux disease",
+  "malaise and fatigue"
+)
+
+common_dxs_with_asthma <- person_status %>%
+  select(person_id, condition_start_date, status) %>%
+  left_join(condition_era, by = "person_id") %>%
+  mutate(days_passed = difftime(condition_era_start_date, condition_start_date, units = "days")) %>%
+  filter(
+    days_passed > 0 &
+      str_detect(diagnosis, paste0("^(", paste(dxs, collapse="|"), ")"))
+  ) %>%
+  mutate(
+    clean_diagnosis_name = case_when(
+      str_detect(diagnosis, "coronary arteriosclerosis") ~ "coronary arteriosclerosis",
+      TRUE ~ diagnosis
+    )
+  ) %>%
+  distinct(diagnosis, clean_diagnosis_name)
+
+diagnoses <- condition_era %>%
+  inner_join(common_dxs_with_asthma, by = "diagnosis") %>%
+  distinct(person_id, clean_diagnosis_name) %>%
+  mutate(dx_present = 1) %>%
+  pivot_wider(
+    names_from = clean_diagnosis_name,
+    values_from = dx_present,
+    values_fill = 0,
+    names_sort = TRUE
+  ) %>%
+  clean_names()
+
+kable(head(diagnoses), caption = "Table 8") %>%
+  kable_styling() %>%
+  scroll_box(width = "100%")
+```
+
+<br>
+
+### Lab Tests
+
+The lab tests data frame was constructed in the same way as the diagnoses data frame. The main difference is that the `measurement` table was queried instead of the `condition_era` table. One downside of the `measurement` table is that it did not contain the actual values for the lab tests. It only contained the name of the lab tests taken by a subject. The three specific tests that were filtered for are `electrocardiogram`, `iron binding capacity` and `thyroid stimulating hormone`.
+```{r}
+sql <- "
+SELECT
+  person_id,
+  lower(concept_name) as measurement_name,
+  measurement_date
+FROM
+  measurement
+  left join concept on measurement_concept_id = concept_id
+"
+
+measurement <- dbGetQuery(con, sql)
+
+# disconnet from DB
+dbDisconnect(con)
+
+common_tests_for_asthma <- person_status %>%
+  select(person_id, condition_start_date, status) %>%
+  left_join(measurement, by = "person_id") %>%
+  mutate(days_passed = difftime(measurement_date, condition_start_date, units = "days")) %>%
+  filter(
+    days_passed > 0 &
+      str_detect(
+        measurement_name,
+        "^(iron binding capacity|electrocardiogram|thyroid stimulating hormone)"
+      )
+  ) %>%
+  mutate(
+    clean_measurement_name = case_when(
+      str_detect(measurement_name, "electrocardiogram") ~ "electrocardiogram",
+      str_detect(measurement_name, "iron binding capacity") ~ "iron binding capacity",
+      TRUE ~ "thyroid stimulating hormone"
+    )
+  ) %>%
+  distinct(measurement_name, clean_measurement_name)
+
+lab_tests <- measurement %>%
+  inner_join(common_tests_for_asthma, by = "measurement_name") %>%
+  distinct(person_id, clean_measurement_name) %>%
+  mutate(measurement_taken = 1) %>%
+  pivot_wider(
+    names_from = clean_measurement_name,
+    values_from = measurement_taken,
+    values_fill = 0,
+    names_sort = TRUE
+  ) %>%
+  clean_names()
+
+kable(head(lab_tests), caption = "Table 9") %>%
+  kable_styling(full_width = FALSE)
+```
+
+### Create Final dataset
+
+The `person_status` data frame created in  in _Identify Cases and Controls_ section is the master data frame. The `demographics`, `drugs_taken`, `diagnosis` and `lab_tests` data frames will be left joined to the master data frame using `person_id` as the primary key. If a subject did not appear in the `drugs_taken`, `diagnosis`, or `lab_tests` data frames it means that the subject did not have any of these selected values. Thus, these NA values will be replaced with 0.
+```{r}
+asthma_prediction_data <- list(person_status, demographics,
+                          drugs_taken, diagnoses, lab_tests) %>%
+  reduce(left_join, by = "person_id") %>%
+  # remove unknown race
+  filter(race != "No matching concept") %>%
+  # if subject has no drugs, diagnosis or labs data replace NA with 0
+  mutate_if(is.numeric, replace_na, 0) %>%
+  select(-c(person_id, concept_name, condition_start_date))
+
+kable(head(asthma_prediction_data), caption = "Table 10") %>%
+  kable_styling() %>%
+  scroll_box(width = "100%")
+```
+
+<br>
+
+## Summary Statistics {.tabset .tabset-pills}
+
+The summary statistics table provides an overall summary of the data. It shows that there are 877 subjects of which 301 are cases and 576 are controls. Thus, the data is class imbalanced.
+```{r}
+asthma_prediction_data %>%
+  tbl_summary(by = status) %>%
+  add_overall(last = TRUE)
+```
+
+<br>
+
+## Create Train-Test Splits {.tabset .tabset-pills}
+An 80-20 train-test split was performed. The split was stratified by status to achieve an equal proportion of classes in each split. Additionally, gender and race were one hot encoded while age was normalized to be between the range of 0 and 1. This normalization ensures that all variables are in the same range.
+
+```{r}
+set.seed(13)
+
+# do stratified split on status as data is imbalanced
+data_split <- initial_split(asthma_prediction_data,
+                            strata = status, prop = 0.8)
+train_set_split <- training(data_split)
+test_set_split <- testing(data_split)
+
+model_recipe <- recipe(status ~ ., train_set_split) %>%
+  step_dummy(c(gender,race)) %>%
+  step_range(age_at_diagnosis) %>%
+  prep()
+
+train_set <- bake(model_recipe, train_set_split)
+
+train_features <- train_set %>% select(-status)
+
+train_target <- train_set %>%
+  select(status) %>%
+  mutate(status = if_else(status == "case", 1, 0))
+
+test_set <- bake(model_recipe, test_set_split)
+
+test_features <- test_set %>% select(-status)
+
+test_target <- test_set %>%
+  select(status) %>%
+  mutate(status = if_else(status == "case", 1, 0))
+```
+
+## Machine learning {.tabset .tabset-pills}
+
+
+#### Import Python Libraries
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC, LinearSVC
+from sklearn import model_selection, metrics
+from imblearn.over_sampling import RandomOverSampler
+from sklearn.metrics import plot_confusion_matrix
+from imblearn.pipeline import Pipeline, make_pipeline
+from sklearn.model_selection import GridSearchCV
+```
+
+#### Load Train Data
+```{python}
+# access train_features and train_targets created by r
+train_features = r.train_features
+train_target = r.train_target
+
+train_features.info()
+```
+
+#### Resampling Strategies
+
+
+##### Cross Validation
+Stratified five-fold cross validation was applied to the training set to simulate model performance on unseen data. The training data was split into five subsets of approximately equal sizes. Four subsets were combined together and used to train the model. The fifth subset, sometimes called the hold-out or assessment set, was then used to evaluate the model's performance on unseen data. It's important to note that each data point will appear in exactly one fold as the sampling was performed without replacement. This process was then repeated four more times with different subsets reserved for training and evaluation each time. This resulted in five sets of performance metrics which were created from the five different assessment sets used for model evaluation. The performance metrics used were F1, precision and recall. The average for each of these performance metrics was then calculated to estimate the model's ability to generalize to unseen data
+
+```{python}
+kfold = model_selection.StratifiedKFold(n_splits=5)
+
+performance_metrics = ['f1', 'precision', 'recall']
+
+assessment_performance_metrics = ['test_' + x for x in performance_metrics]
+```
+
+
+##### Oversampling
+Based on the summary statistics we see that the ratio of cases to controls is almost 1:2. This imbalance can make it difficult for models to learn to distinguish between the majority and minority classes. It will especially be problematic for our purposes as the event of interest is the minority class (cases). Randomly oversampling the data is one way to overcome the challenges of class imbalance. The minority class was oversampled to contain 80% of the number of observations that the majority class contained.
+
+```{python}
+oversample_strategy = RandomOverSampler(sampling_strategy=0.80, random_state=42)
+```
+
+It is vital that oversampling only occur on the training data as the test data should reflect what one would expect in reality. Additionally, oversampling should occur inside cross validation to prevent overly optimistic performance metrics as a result of oversampling being performed on the assessment set. To facilitate this the function `get_model_metrics` was created. This function makes it convenient to test multiple models and ensures that oversampling is not performed on the assessment set within cross validation.
+
+```{python}
+def get_model_metrics(model_to_use, model_name, oversample):
+
+  if oversample == 'Yes':
+      model = Pipeline([('oversample', oversample_strategy),
+                        ('model',  model_to_use)])
+  else:
+      model = model_to_use
+
+  cv_results = model_selection.cross_validate(
+          model,
+          train_features,
+          np.ravel(train_target),
+          cv=kfold,
+          scoring=performance_metrics)
+
+  df = pd.DataFrame(columns=['Algorithm', 'Over Sampling', 'Metric', 'Value'])
+
+  for metric in assessment_performance_metrics:
+      score_value = cv_results[metric].mean().round(2)
+      df = df.append({'Algorithm': model_name,
+                      'Over Sampling': oversample,
+                      'Metric': metric,
+                      'Value': score_value},
+                  ignore_index=True)
+
+  return(df)
+```
+
+
+#### Model Performance Evaluation
+__Table 11__  compares the average of the evaluation metrics on the assessment folds from cross-validation for multiple models. The three performance metrics used are precision, recall and F1. Precision represents the proportion of positive identifications that were actually correct. Recall measures the proportion of true positives that were correctly identified and F1 is the weighted average of precision and recall.
+
+Based on __Table 11__ the linear support vector classifier trained on the oversampled data had the highest recall. This model also had the lowest precision as improving recall tends to decrease precision and vice versa. For our purposes this is not an issue as a high recall is more important than a high precision since the goal is to correctly identify actual cases.
+
+The precision score of 0.47 means that when the model classifies a subject as a case it is correct 47% of the time. Alternately, it is incorrectly classifying a subject as a case 53% of the time.
+
+The recall score of 0.83 means that of all the subjects who were actual cases the model correctly identified 83% of these subjects as cases.
+
+In real world clinical settings the metric to optimize for is often determined by subject matter experts. They can determine if precision and recall are equally important or if more emphasis should be placed on either one. In instances where both precision and recall are equally important the F1 score can be used as it's indicative of both a good precision and good recall.
+
+```{python echo=TRUE}
+logistic_reg = get_model_metrics(
+    LogisticRegression(random_state=42),
+    "Logistic Regression",
+    oversample='No')
+
+oversample_logistic_reg = get_model_metrics(
+    LogisticRegression(random_state=42),
+    "Logistic Regression",
+    oversample='Yes')
+
+svm_model = get_model_metrics(
+    SVC(random_state=42),
+    "SVC (RBF)",
+    oversample='No')
+
+oversample_svm_model = get_model_metrics(
+    SVC(random_state=42),
+    "SVC (RBF)",
+    oversample='Yes')
+
+linear_svc = get_model_metrics(
+    LinearSVC(random_state=42),
+    "SVC (Linear)",
+    oversample='No')
+
+oversample_linear_svc = get_model_metrics(
+    LinearSVC(random_state=42),
+    "SVC (Linear)",
+    oversample='Yes')
+
+compare_models = (
+  pd.concat([logistic_reg, oversample_logistic_reg,
+             svm_model, oversample_svm_model,
+             linear_svc, oversample_linear_svc
+            ])
+ .pivot(index=['Algorithm','Over Sampling'], columns='Metric', values='Value')
+ .reset_index()
+)
+```
+
+```{r}
+model_performance <- py$compare_models %>%
+  rename_all(., ~ str_replace_all(., "test_", "")) %>%
+  arrange(desc(recall))
+
+kable(model_performance, caption = "Table 11") %>%
+  kable_styling(full_width = FALSE)
+```
+
+#### Tune Model Parameters
+__Table 11__ shows that the linear SVC model on the oversampled data had the highest recall.
+Let's try hyperparameter tuning to determine if performance can be improved
+```{python}
+grid = {'clf__loss': ['hinge', 'squared_hinge'],
+        'clf__C': [0.5, 0.1, 0.005, 0.001]}
+
+pipeline = Pipeline([('sampling', oversample_strategy),
+                     ('clf', LinearSVC(random_state=42, max_iter = 20000))])
+
+grid_cv = GridSearchCV(pipeline, grid, scoring='recall', cv=kfold)
+
+grid_cv.fit(train_features, np.ravel(train_target))
+```
+
+Print the best hyperparamaters
+```{python}
+grid_cv.best_params_
+```
+
+Fit the tuned model on the oversampled data
+```{python}
+tuned_oversample_svc_model = (
+  get_model_metrics(
+      LinearSVC(C = 0.005, loss='hinge', random_state=42),
+      "Tuned SVC (Linear)",
+      oversample='Yes')
+  .pivot(index=['Algorithm','Over Sampling'], columns='Metric', values='Value')
+  .reset_index()
+  )
+
+```
+
+```{r}
+model_performance <- model_performance %>%
+  bind_rows(py$tuned_oversample_svc_model %>%
+               rename_all(., ~ str_replace_all(., "test_", ""))) %>%
+  arrange(desc(recall))
+
+kable(model_performance, caption = "Table 12") %>%
+  kable_styling(full_width = FALSE)
+```
+
+The tuned linear SVC model on the oversampled data has the highest recall. This model should produce similar performance metrics when applied to the test set. If the performance is significantly worse it's a sign that the model was overfitted during training.
+
+#### Make Predictions on the Test Data
+The tuned Linear SVC will be trained on the full oversampled train data and then be used to generate predictions on the test data.
+```{python}
+# load the test data
+test_features = r.test_features
+test_target = r.test_target
+
+# specify the best model
+best_model = LinearSVC(C=0.005, loss='hinge', penalty='l2', random_state=42)
+
+# oversample the train data
+train_oversample_features, train_oversample_target = oversample_strategy.fit_resample(
+    train_features, train_target)
+
+# Train the model on the oversampled train data
+model_fit_on_train = best_model.fit(train_oversample_features, np.ravel(train_oversample_target))
+
+# Make predictions on the test data
+y_pred_class = model_fit_on_train.predict(test_features)
+
+test_metrics = pd.DataFrame({"Algorithm": ["Linear SVC"],
+                  "F1": [metrics.f1_score(test_target, y_pred_class).round(2)],
+                  "Precision": [metrics.precision_score(test_target, y_pred_class).round(2)],
+                  "Recall": [metrics.recall_score(test_target, y_pred_class).round(2)]})
+```
+
+The model performance on the test set is very similar to the performance shown during cross validation. Thus, the model was not overfitted or underfitted during training. 87% of cases were correctly predicted while 44% of subjects were correctly classified.
+
+```{r}
+kable(py$test_metrics, caption = "Table 13") %>%
+  kable_styling(full_width = FALSE)
+```
+
+```{python}
+plt.figure()
+plot_confusion_matrix(model_fit_on_train, test_features,test_target,
+                      display_labels=['control','case'])
+plt.show()
+```
+

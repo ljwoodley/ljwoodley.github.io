@@ -1,0 +1,66 @@
+---
+output:
+  html_document:
+    includes:
+      in_header: hero-image.html
+    css: styles.css
+---
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(fs)
+library(glue)
+library(lubridate)
+```
+
+<br>
+
+# About
+Hi there, I’m Laurence and welcome to my blog. I made this blog to showcase projects that I enjoy, to highlight the beauty of the R programming language from my perspective and also as a medium for myself and others to learn.
+
+I graduated from the University of Florida with an undergraduate degree in Statistics and since then I have had the pleasure of working with a wide variety of data from political, health and criminal intelligence domains. Currently, I work at the University of Florida Clinical and Translational Science Informatics department where I spend my days building extract transform load pipelines, providing analytical programming for clinical trials and doing data and statistical analysis for various research projects. The majority of my work is done with R, MySQL and REDCap but I also use Docker and Python when necessary.
+
+When I’m not working with R I enjoy reading books, especially statistics books like Naked Statistics, exploring data science blogs and traveling.
+
+```{r  message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+all_posts <- dir_tree("posts", glob = "*.html|*.txt") %>%
+  tibble() %>%
+  select("file_name" =  1) %>% 
+  separate(
+    file_name,
+    c("main_folder", "post_date", "file"),
+    sep = "/",
+    remove = FALSE
+  ) %>% 
+  filter(!is.na(file)) %>% 
+  arrange(desc(post_date)) %>% 
+  group_by(file_name) %>%
+  mutate(
+    post_description = case_when(
+      str_detect(file_name, "description.txt") ~ read_file(file_name),
+      TRUE ~ NA_character_
+    ),
+     post_title = case_when(
+      str_detect(file_name, "post_title.txt") ~ read_file(file_name),
+      TRUE ~ NA_character_),
+    post_date = format(ymd(post_date), format = '%b %d, %Y' )
+  ) %>%
+  group_by(post_date) %>% 
+  fill(c(post_description, post_title), .direction = "downup") %>%
+  filter(str_detect(file_name, ".html"))
+```
+
+<br>
+
+# Posts
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, results='asis'}
+glue_data(all_posts,
+    "<h3><a class='links' href='{file_name}'>{post_title}</a></h3>",
+    "<h5>{post_date}</h5>",
+    "<p>{post_description}</p>",
+    "<a class='btn btn-outline-primary btn-sm' href='{file_name}'>Read More</a>",
+    "<hr>"
+  )
+```
+
+
