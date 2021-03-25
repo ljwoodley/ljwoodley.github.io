@@ -1,0 +1,2 @@
+The data used for this analysis was obtained from the Journal of Statistical Education Data Archive. It consists of a sample of 654 subjects, male and female, aged 3 to 19 years old from the area of East Boston during the late 1970s. This analysis attempts to determine the relationship between forced expiratory volume (FEV) and smoking status via linear regression.
+

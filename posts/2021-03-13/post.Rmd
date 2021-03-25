@@ -1,0 +1,145 @@
+---
+output:
+  html_document:
+    code_folding: hide
+    includes:
+      in_header: ../navbar.html
+    css: ../styles.css
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	fig.width=14,
+	fig.height=10,
+	dpi=300
+)
+```
+
+# Regression Analysis of Forced Expiratory Volume
+
+### Introduction
+
+The data used for this analysis was obtained from the [Journal of Statistical Education Data Archive](http://jse.amstat.org/jse_data_archive.htm). It consists of a sample of 654 subjects, male and female, aged 3 to 19 years old from the area of East Boston during the late 1970s. This analysis attempts to determine the relationship between forced expiratory volume (FEV) and smoking status via linear regression. FEV is the amount of air a person can exhale within one second after maximal inhalation. It is measured during a pulmonary function test by a diagnostic device called a spirometer, which records the amount of air that passes through the body as the person exhales. Subjects with lung diseases such as asthma have lower FEV values and thus weaker lung function when compared to healthy subjects.
+
+### Exploratory Analysis
+
+The FEV vs Smoke plot in Figure 1 indicates that, on average, smokers have a higher FEV than non-smokers. This is surprising as we'd expect smokers to have weaker lung function than non-smokers. This results suggests that there might be other variables that's hiding the true relationship between lung function and smoking status as it's unlikely that smoking is truly associated with stronger lung function.
+
+One such variable could be age. The FEV vs Age plot shows the relationship between age and FEV stratified by smoking status. The plot shows that there are no smokers younger than age 9 and that between ages 9 and 11 smokers, on average, have a higher FEV than non-smokers but from ages 12-19 this result reverses. This suggests that it might be worthwhile to interpret the effects of smoking on FEV at certain ages to account for a possible interaction effect. Alternatively, as the trend for smokers and non-smokers is roughly the same from age 12 onwards the possible interaction effect we're seeing could simply be due to random variation instead of a true relationship between smoking status and age.
+
+The FEV vs Height plot stratified by smoking status shows that as height increases FEV increases. This makes sense because taller people tend to have larger chests and thus increased lung capacities which leads to higher FEV.
+
+The FEV vs Age plot stratified by gender also shows a possible interaction effect between age and gender based on the trend in the loess lines. After age 10 the FEV for males increases at a stepper rate than for females.
+
+```{r}
+library(tidyverse)
+library(patchwork)
+library(sjPlot)
+
+fev_data <- read.table(
+  "http://jse.amstat.org/datasets/fev.dat.txt",
+  col.names = c("age", "fev", "height", "sex", "smoke")
+) %>%
+  mutate(
+    sex = if_else(sex == "1", "Male", "Female"),
+    smoke = if_else(smoke == "1", "Smoker", "Non-Smoker")
+  )
+
+smoke_fev <- ggplot(fev_data, aes(x = smoke, y = fev)) +
+  geom_boxplot() +
+  labs(title =  "FEV vs Smoke")
+
+age_fev_by_smoke <-
+  ggplot(fev_data, aes(x = age, y = fev, color = smoke)) +
+  geom_point() +
+  geom_smooth(method = "loess",
+              formula = y ~ x,
+              se = FALSE) +
+  labs(title =  "FEV vs Age",
+       subtitle = "Stratified by Smoking Status")
+
+height_fev_by_smoke <-
+  ggplot(fev_data, aes(x = height, y = fev, color = smoke)) +
+  geom_point() +
+  geom_smooth(method = "loess",
+              formula = y ~ x,
+              se = FALSE) +
+  labs(title =  "FEV vs Height",
+       subtitle = "Stratified by Smoking Status")
+
+age_fev_by_sex <-
+  ggplot(fev_data, aes(x = age, y = fev, color = sex)) +
+  geom_point() +
+  geom_smooth(method = "loess",
+              formula = y ~ x,
+              se = FALSE) +
+  labs(title =  "FEV vs Age",
+       subtitle = "Stratified by Sex")
+
+(smoke_fev | age_fev_by_smoke) / (height_fev_by_smoke | age_fev_by_sex) +
+  plot_annotation(title = "Figure 1")
+```
+
+### Model Building and Diagnostics
+
+Based on the exploratory analysis we see that in order to determine the true relationship between FEV and smoking among people between the ages of 3 and 19 we'll have to adjust for age, height and gender when constructing the linear regression model. We'll also need to verify that the assumptions of linearity, normality and constant variance are satisified.
+
+##### Initial Model
+
+Let's start by fitting an initial model with all four predictors and then determine if the model assumptions of linearity, normality and constant variance are satisified. It is important to verify that these assumptions are met as any violations could lead to questionable results for the p-values, confidence intervals and coefficient estimates produced by the model.
+
+```{r}
+initial_model <- lm(fev ~ age + height + sex + smoke, fev_data)
+
+plot_model(initial_model,  type = "diag") %>%
+  wrap_plots() +
+  plot_annotation(title = "Figure 2",
+                  subtitle = "Model: FEV = age + height + sex + smoke")
+```
+
+The initial model shows issues with non-constant variance as indicated by the funnel shape of the Homoscedasticity plot in Figure 2. Non-constant variance leads to less precise coefficient estimates and affects the validity of confidence intervals and p-values produced by the model. Non-linearity is also present as shown by the curvature of the blue line. The FEV vs Height plot in Figure 1 shows a quadratic relationship between FEV and Height. One potential solution to the non-linearity issue is to include the quadratic term for height in the model but this may not solve the non-constant variance issue. A better alternative is a log transformation of FEV to account for both non-constant variance and linearity issues.
+
+##### Log Transformed Model
+
+The Homoscedasticity plot in Figure 3 no longer exhibit signs of non-constant variance or non-linearity. Multicollinearity is not an issue as no predictor has a variance inflation factor above five and the normality assumption is met as the points in the QQ-plot fall on the blue reference line.
+
+```{r}
+log_model <- lm(log(fev) ~ age + height + sex + smoke, fev_data)
+
+plot_model(log_model,  type = "diag") %>%
+  wrap_plots() +
+  plot_annotation(title = "Figure 3",
+                  subtitle = "Model: log(FEV) = age + height + sex + smoke")
+```
+
+### Model Interpretation
+
+In addition to building the log transformed model with all predictors two other models were tested. The first was the log transformed model with all predictors along with the smoke and age interaction term. The second was the log transformed model with all predictors along with the sex and age interaction term. Both models with the interaction terms (not shown) showed that the interaction terms were not significant (p-value \> 0.05) and the adjusted $R^2$ was not higher than the adjusted $R^2$ obtained from the log transformed model without the interaction terms. Thus, to avoid unwarranted complexity the model without any interaction term was used as the final model. Note that the log transformation of FEV means that the average value of FEV will be modeled on a relative scale instead of an absolute scale. Thus, to make inferences the exponentiated $((exp(x) - 1) * 100)$ coefficient estimates will be used as exponentiation is the inverse of the natural logarithm function.
+
+```{r}
+tab_model(log_model, digits = 3, title = "Table 1") 
+```
+
+<br>
+
+The results from Table 1 indicate that:
+
+-   For every one year increase in age the mean FEV level increases by 2.3%, after adjusting for height, sex and smoking status. The 95% confidence interval indicates that for each one year increase in age the true increase in the mean FEV level is between 1.7% and 3.0% after adjusting for height, sex and smoking status.
+
+-   For every one inch increase in height the mean FEV level increases by 4.3% after adjusting for age, sex and smoking status. The 95% confidence interval indicates that for each one inch increase in height the true increase in the mean FEV level is between 3.9% and 4.6% after adjusting for age, sex and smoking status.
+
+-   The mean FEV level for males is 2.9% higher than the mean FEV level for females after adjusting for age, height and smoking status. The 95% confidence interval indicates that the mean FEV level is between 0.60% to 5.2% higher for males than for females after adjusting for age, height and smoking status.
+
+-   The mean FEV level for smokers is 4.6% lower than the mean FEV level for non-smokers after adjusting for age, height and sex. The 95% confidence interval indicates that the mean FEV level is between 0.5% to 8.3% lower for smokers than for non-smokers after adjusting for age, height and sex.
+
+The intercept has no practical meaning in this model as height can never be 0. It is possible for age to be 0 but it would not make sense in this context as this data only contains information on subjects between the ages of 3 and 19 and it's impossible for a newborn to smoke.
+
+All variables are statistically significant as indicated by the p-values which are all below 0.05. The adjusted $R^2$ indicates that 80.9% of the variation in FEV was explained by the model.
+
+### Conclusion
+
+The purpose of this post was to create a multiple linear regression model for determining the relationship between FEV and smoking status in children between ages 3 and 19. The initial regression model showed non-constant error variance which indicated a transformation was needed. A natural logarithm transformation was then performed on the response variable to remedy the non-constant variance issue. The model showed that all four predictors were significant and the Adjusted $R^2$ was 80.9%. Thus, this was an overall good fit, and the model can give an accurate estimation of the relationship between FEV and smoking status after adjusting for age, sex and height.
