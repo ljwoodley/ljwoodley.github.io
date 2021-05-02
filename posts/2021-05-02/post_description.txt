@@ -1,0 +1,1 @@
+This post focuses on exploring the 2019 crime report profiles of Florida's counties. The goal is to visualizing the similarities and differences in the overall crime report profiles between counties.
