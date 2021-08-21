@@ -1,0 +1,114 @@
+---
+title: 
+output:
+  html_document:
+    includes:
+      in_header: ../navbar.html
+    css: ../styles.css
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	comment = NA
+)
+
+library(tidyverse)
+library(DBI)
+library(knitr)
+library(kableExtra)
+library(reticulate)
+```
+
+# Query Challenge #1
+
+The __orders__ table shows the number of products ordered each day. Query the data to return the most frequent item(s) ordered each day. Return multiple items if there are ties.
+
+
+```{r include=FALSE}
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "ljwblog",
+  dataset = "challenge_1"
+)
+```
+
+```{sql connection=con, include=FALSE, output.var='orders'}
+select * from orders
+```
+
+```{r echo=FALSE}
+kable(orders, caption = "orders") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+# {.tabset}
+
+## SQL
+```{sql, connection=con, output.var='product_orders'}
+with product_ranking as (
+  select 
+  *, 
+  rank() over (partition by date order by product_count desc) as product_rank
+  from (
+    select 
+      date,
+      product,
+      count(*) as product_count
+    from orders
+    group by date, product
+  )
+)
+
+select 
+  date, 
+  product, 
+  product_count as n
+from product_ranking 
+where product_rank = 1
+order by date
+```
+
+```{r echo=FALSE}
+kable(product_orders) %>% 
+  kable_styling(full_width = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+dbDisconnect(con)
+```
+
+## R
+```{r}
+product_orders <- orders %>%
+  count(date, product) %>%
+  group_by(date) %>%
+  filter(n == max(n)) 
+```
+
+```{r echo=FALSE}
+kable(product_orders) %>% 
+  kable_styling(full_width = FALSE)
+```
+
+## Python
+```{python}
+orders = r.orders
+
+product_orders = (
+  r.orders
+ .groupby(['date', 'product'])
+ .size()
+ .reset_index(name='n')
+ .sort_values(by=['date', 'n'], ascending=(True, False))
+)
+
+product_orders['ranking'] = product_orders.groupby('date')['n'].rank(method='dense', ascending=False)
+
+product_orders[product_orders["ranking"] == 1].drop(columns='ranking')
+```
+
+

@@ -1,0 +1,1 @@
+The __orders__ table shows the number of products ordered each day. Query the data to return the most frequent item(s) ordered each day. Return multiple items if there are ties.
