@@ -1,0 +1,217 @@
+---
+title: 
+output:
+  html_document:
+    includes:
+      in_header: ../navbar.html
+    css: ../styles.css
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+library(bigrquery)
+library(DBI)
+library(tidyverse)
+library(kableExtra)
+library(knitr)
+library(reticulate)
+```
+
+
+```{r include=FALSE}
+con <- dbConnect(
+  bigrquery::bigquery(),
+  project = "ljwblog",
+  dataset = "challenge_2"
+)
+```
+
+# Query Challenge #2
+ 
+The __option_transactions__ table shows options trades executed on the thinkorswim trading platform. Query the table to calculate the profit/loss made on each trade.
+
+```{sql connection=con, include=FALSE, output.var='option_transactions'}
+select * from option_transactions
+```
+
+```{r echo=FALSE}
+kable(option_transactions, caption = "option_transactions") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+The anatomy of an options quote can be found
+[here](https://www.ally.com/do-it-right/investing/trading-options-for-beginners/){target="_blank"}
+while this
+[video](https://www.youtube.com/watch?v=ciKRHrdFe1U){target="_blank"}
+provides additional information on how to read an options quote.
+
+Before getting into the query let's disect `TOSWeb BOT +1 RBLX 100 (Weeklys) 13 AUG 21 85 CALL @.82` to ensure that it's understandable:
+
+1.   `TOSWeb` - The thinkorsiwm platform. This can be ignored
+2.  `BOT` - The type of transaction. Can be either "BOT" (contract was bought) or "SOLD" (contract was sold)
+3.  `+1` - The number of contracts bought or sold
+4.  `RBLX` - The underlying stock symbol
+5.  `100 (Weeklys)`  - Can be ignored as it does not provide any needed information
+6.  `13 AUG 21` - The date that the contract expires
+7.  `85` - The strike price of the stock
+8.  `CALL` - The type of option. Can be either "CALL" or "PUT"
+9.   `@.82` - The per contract cost of the option
+
+The first two rows in the __option_transactions__ table shows that 2 RBLX calls 
+with a strike pirce of \$85 and an expiration of 08/13 were bought
+for a total price of \$1.82. The third row shows that both contracts
+were sold for a price of \$2.10 per contract. Thus, the total profit made on this trade was \$2.38 
+
+#  {.tabset}
+
+## SQL
+
+```{sql connection=con, output.var='profit_loss'}
+with clean_options as (
+  select
+    stock, 
+    transaction_type, 
+    contract,
+    sum(num_contracts * price) as total_price,
+  from (
+    select
+        option_quote,
+        trim(regexp_extract(option_quote, r"(.*? ){2}")) as transaction_type,
+        cast(regexp_extract(option_quote, r"\d+") as numeric) as num_contracts,
+        regexp_extract(option_quote, r"(.*? ){4}") as stock,
+        regexp_extract(option_quote, r"\(Weeklys\)?(.*)@") as contract,
+        cast(regexp_extract(option_quote, r"\@(.*)$") as numeric) as price
+    from option_transactions)
+  group by 
+    stock, 
+    transaction_type, 
+    contract
+),
+
+buy_to_open as (
+    select
+        stock,
+        contract,
+        total_price as buy_price
+    from clean_options
+    where transaction_type = 'BOT'
+),
+
+sell_to_close as (
+    select
+        stock,
+        contract,
+        total_price as sell_price
+    from clean_options
+    where transaction_type = 'SOLD'
+)
+
+select
+    buy_to_open.stock,
+    buy_to_open.contract,
+    buy_to_open.buy_price,
+    sell_to_close.sell_price,
+    (sell_to_close.sell_price - buy_to_open.buy_price) as profit_loss
+from
+  buy_to_open
+  inner join sell_to_close on 
+    buy_to_open.stock = sell_to_close.stock and
+    buy_to_open.contract = sell_to_close.contract
+order by profit_loss desc
+```
+
+```{r echo=FALSE}
+kable(profit_loss) %>% 
+  kable_styling(full_width = FALSE)
+```
+
+```{r include=FALSE}
+dbDisconnect(con)
+```
+
+## R
+
+```{r}
+clean_options <- option_transactions %>%
+  mutate(
+    transaction_type = word(option_quote, 2),
+    num_contracts = abs(parse_number((word(option_quote, 3)))),
+    stock = word(option_quote, 4),
+    contract = word(option_quote, 7, 11),
+    price = parse_number(word(option_quote, -1)),
+    total_price = num_contracts * price
+  ) %>% 
+  group_by(stock, transaction_type, contract) %>% 
+  summarise(total_price = sum(total_price)) %>% 
+  ungroup()
+
+buy_to_open = clean_options %>% 
+  filter(transaction_type == 'BOT') %>% 
+  select(stock, contract, buy_price = total_price)
+
+sell_to_close = clean_options %>% 
+  filter(transaction_type == 'SOLD') %>% 
+  select(stock, contract, sell_price = total_price)
+
+profit_loss <- buy_to_open %>% 
+  inner_join(sell_to_close, by = c("stock", "contract")) %>% 
+  mutate(profit_loss = sell_price - buy_price) %>% 
+  arrange(desc(profit_loss))
+
+```
+
+```{r echo=FALSE}
+kable(profit_loss) %>% 
+  kable_styling(full_width = FALSE)
+```
+
+## Python
+
+```{python}
+option_transactions = r.option_transactions
+
+clean_options = (
+  option_transactions
+  .assign(
+    option_quote = lambda x: x["option_quote"].str.split(" "),
+    transaction_type = lambda x: x["option_quote"].str[1],
+    num_contracts = lambda x: x["option_quote"].str[2].apply(int).abs(),
+    stock = lambda x: x["option_quote"].str[3],
+    contract = lambda x: x["option_quote"].str[6:10].str.join(" "),
+    price = lambda x: x["option_quote"].str[-1].str.replace("@", "").apply(float),
+    total_price = lambda x: x["num_contracts"] * x["price"]
+    )
+  .groupby(['stock','transaction_type','contract'])['total_price']
+  .sum()
+  .reset_index()
+  )
+
+buy_to_open = (
+  clean_options[clean_options['transaction_type'] == 'BOT']
+  [['stock', 'contract', 'total_price']]
+  .rename({"total_price": "buy_price"}, axis='columns')
+  )
+  
+sell_to_close = (
+  clean_options[clean_options['transaction_type'] == 'SOLD']
+  [['stock', 'contract', 'total_price']]
+  .rename({"total_price": "sell_price"}, axis = 'columns')
+  )
+
+profit_loss = (
+  buy_to_open
+  .merge(sell_to_close, how='inner', left_on=['stock', 'contract'], right_on=['stock', 'contract'])
+  .assign(profit_loss = lambda x: x["sell_price"] - x["buy_price"])
+  .sort_values(by='profit_loss', ascending=False)
+  )
+```
+
+```{r echo=FALSE}
+kable(py$profit_loss) %>% 
+  kable_styling(full_width = FALSE)
+```
