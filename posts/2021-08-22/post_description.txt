@@ -1,0 +1,1 @@
+The __option_transactions__ table shows options trades executed on the thinkorswim trading platform. Query the table to calculate the profit/loss made on each trade.
