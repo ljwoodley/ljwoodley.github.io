@@ -367,7 +367,7 @@ TOSWeb SOLD -1 AAPL 100 (Weeklys) 13 AUG 21 150 CALL <span class="citation">@2.6
 </tbody>
 </table>
 <p>The anatomy of an options quote can be found <a href="https://www.ally.com/do-it-right/investing/trading-options-for-beginners/" target="_blank">here</a> while this <a href="https://www.youtube.com/watch?v=ciKRHrdFe1U" target="_blank">video</a> provides additional information on how to read an options quote.</p>
-<p>Before getting into the query let’s disect <code>TOSWeb BOT +1 RBLX 100 (Weeklys) 13 AUG 21 85 CALL @.82</code> to ensure that it’s understandable:</p>
+<p>Before getting into the query let’s explain <code>TOSWeb BOT +1 RBLX 100 (Weeklys) 13 AUG 21 85 CALL @.82</code> to ensure that it’s understandable:</p>
 <ol style="list-style-type: decimal">
 <li><code>TOSWeb</code> - The thinkorsiwm platform. This can be ignored</li>
 <li><code>BOT</code> - The type of transaction. Can be either “BOT” (contract was bought) or “SOLD” (contract was sold)</li>
@@ -379,7 +379,7 @@ TOSWeb SOLD -1 AAPL 100 (Weeklys) 13 AUG 21 150 CALL <span class="citation">@2.6
 <li><code>CALL</code> - The type of option. Can be either “CALL” or “PUT”</li>
 <li><code>@.82</code> - The per contract cost of the option</li>
 </ol>
-<p>The first two rows in the <strong>option_transactions</strong> table shows that 2 RBLX calls with a strike pirce of $85 and an expiration of 08/13 were bought for a total price of $1.82. The third row shows that both contracts were sold for a price of $2.10 per contract. Thus, the total profit made on this trade was $2.38</p>
+<p>The first two rows in the <strong>option_transactions</strong> table shows that 2 RBLX calls with a strike price of $85 and an expiration of 08/13 were bought for a total price of $1.82. The third row shows that both contracts were sold for a price of $2.10 per contract. Thus, the total profit made on this trade was $2.38</p>
 </div>
 <div id="section" class="section level1 tabset">
 <h1 class="tabset"></h1>
