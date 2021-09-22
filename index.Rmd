@@ -16,9 +16,9 @@ library(lubridate)
 <br>
 
 # About
-Hi there, I’m Laurence and welcome to my blog. I made this blog to showcase projects that I enjoy, to highlight the beauty of the R programming language from my perspective and also as a medium for myself and others to learn.
+Hi there, I’m Laurence and welcome to my blog. I made this blog to showcase projects that I enjoy, to highlight the beauty of the R programming language from my perspective and also as a medium for myself and others to learn. This blog was created entirely in R Markdown and the source code can be found [here](https://github.com/ljwoodley/ljwoodley.github.io){target="_blank"}.
 
-I graduated from the University of Florida with an undergraduate degree in Statistics and since then I have had the pleasure of working with a wide variety of data from political, health and criminal intelligence domains. Currently, I work at the University of Florida Clinical and Translational Science Informatics department where I spend my days building extract transform load pipelines, providing analytical programming for clinical trials and doing data and statistical analysis for various research projects. The majority of my work is done with R, MySQL and REDCap but I also use Docker and Python when necessary.
+I graduated from the University of Florida with an undergraduate degree in Statistics and since then I have had the pleasure of working with a wide variety of data from political, health and criminal intelligence domains. Currently, I work at the University of Florida Clinical and Translational Science Informatics department where I spend my days working on projects centered around analytics engineering. The majority of my work is done with R, MySQL and REDCap but I also use Docker and Python when necessary.
 
 When I’m not working with R I enjoy reading books, especially statistics books like Naked Statistics, exploring data science blogs and traveling.
 
