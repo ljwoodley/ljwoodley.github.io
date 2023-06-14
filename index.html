@@ -13,8 +13,8 @@
 
 <title>index.knit</title>
 
-<script src="site_libs/header-attrs-2.10/header-attrs.js"></script>
-<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<script src="site_libs/header-attrs-2.18/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
 <script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
@@ -66,6 +66,7 @@ if (window.hljs) {
 
 
 
+
 <link rel="stylesheet" href="styles.css" type="text/css" />
 
 
@@ -91,6 +92,9 @@ button.code-folding-btn:focus {
 summary {
   display: list-item;
 }
+details > summary > p:only-child {
+  display: inline;
+}
 pre code {
   padding: 0;
 }
@@ -110,8 +114,8 @@ pre code {
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
-  content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
   padding: 10px;
@@ -119,16 +123,9 @@ pre code {
 }
 
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-  content: "&#xe258;";
-  border: none;
-}
-
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-  content: "";
+  content: "\e258";
   font-family: 'Glyphicons Halflings';
-  display: inline-block;
-  padding: 10px;
-  border-right: 1px solid #ddd;
+  border: none;
 }
 
 .tabset-dropdown > .nav-tabs > li.active {
@@ -180,89 +177,144 @@ pre code {
 <p><br></p>
 <div id="about" class="section level1">
 <h1>About</h1>
-<p>Hi there, I’m Laurence and welcome to my blog. I made this blog to showcase projects that I enjoy, to highlight the beauty of the R programming language from my perspective and also as a medium for myself and others to learn. This blog was created entirely in R Markdown and the source code can be found <a href="https://github.com/ljwoodley/ljwoodley.github.io" target="_blank">here</a>.</p>
-<p>I graduated from the University of Florida with an undergraduate degree in Statistics and since then I have had the pleasure of working with a wide variety of data from political, health and criminal intelligence domains. Currently, I work at the University of Florida Clinical and Translational Science Informatics department where I spend my days working on projects centered around analytics engineering. The majority of my work is done with R, MySQL and REDCap but I also use Docker and Python when necessary.</p>
-<p>When I’m not working with R I enjoy reading books, especially statistics books like Naked Statistics, exploring data science blogs and traveling.</p>
+<p>Hello, I’m Laurence and welcome to my blog. I created this blog to
+showcase my passion projects, highlight the beauty of the R programming
+language and provide a platform for learning. Everything you see here
+has been crafted with care using R Markdown, and if you’re curious, you
+can find the source code <a
+href="https://github.com/ljwoodley/ljwoodley.github.io"
+target="_blank">here</a>.</p>
+<p>I graduated from the University of Florida with an undergraduate
+degree in Statistics and since then I have had the pleasure of working
+with a wide variety of data from political, health and criminal
+intelligence domains. Currently, I spend my days working on projects
+centered around analytics engineering where the majority of my work is
+done with R, MySQL, Docker, REDCap and Azure but I also use Python when
+necessary.</p>
+<p>During my free time I enjoy exploring the vibrant landscape of data
+science and engineering blogs to expand my knowledge. When I’m not
+immersed in data related activities you’ll find me exploring new places,
+experiencing different cultures or savoring diverse cuisines.</p>
 <p><br></p>
 </div>
 <div id="posts" class="section level1">
 <h1>Posts</h1>
 <h3>
-<a class='links' href='posts/2021-09-21/post.html'>Data Wrangling EP 2: Calculating Monthly Recurring Revenue</a>
+<a class='links' href='posts/2021-09-21/post.html'>Data Wrangling EP 2:
+Calculating Monthly Recurring Revenue</a>
 </h3>
 <h5>
 Sep 21, 2021
 </h5>
 <p>
-I discovered this fantastic <a href="https://blog.getdbt.com/modeling-subscription-revenue/" target="_blank">post</a> written by Claire Carroll and I was instantly inspired. I really enjoyed studying her process and figured that it’d be a fun exercise to implement this data transformation in R. I’m not going to convert the SQL code from Claire’s post to R code verbatim. Instead, I’ll implement my own process for the data transformation. Overall, the input and output data will be the same as in Claire’s post.
+I discovered this fantastic <a
+href="https://blog.getdbt.com/modeling-subscription-revenue/"
+target="_blank">post</a> written by Claire Carroll and I was instantly
+inspired. I really enjoyed studying her process and figured that it’d be
+a fun exercise to implement this data transformation in R. I’m not going
+to convert the SQL code from Claire’s post to R code verbatim. Instead,
+I’ll implement my own process for the data transformation. Overall, the
+input and output data will be the same as in Claire’s post.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-09-21/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-09-21/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-08-22/post.html'>Query Challenge #2</a>
+<a class='links' href='posts/2021-08-22/post.html'>Query Challenge
+#2</a>
 </h3>
 <h5>
 Aug 22, 2021
 </h5>
 <p>
-The <strong>option_transactions</strong> table shows options trades executed on the thinkorswim trading platform. Query the table to calculate the profit/loss made on each trade.
+The <strong>option_transactions</strong> table shows options trades
+executed on the thinkorswim trading platform. Query the table to
+calculate the profit/loss made on each trade.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-08-22/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-08-22/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-08-21/post.html'>Query Challenge #1</a>
+<a class='links' href='posts/2021-08-21/post.html'>Query Challenge
+#1</a>
 </h3>
 <h5>
 Aug 21, 2021
 </h5>
 <p>
-The <strong>orders</strong> table shows the number of products ordered each day. Query the data to return the most frequent item(s) ordered each day. Return multiple items if there are ties.
+The <strong>orders</strong> table shows the number of products ordered
+each day. Query the data to return the most frequent item(s) ordered
+each day. Return multiple items if there are ties.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-08-21/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-08-21/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-05-02/post.html'>Exploring Florida’s Uniform Crime Report Offense Data </a>
+<a class='links' href='posts/2021-05-02/post.html'>Exploring Florida’s
+Uniform Crime Report Offense Data </a>
 </h3>
 <h5>
 May 02, 2021
 </h5>
 <p>
-This post focuses on exploring the 2019 crime report profiles of Florida’s counties. The goal is to visualizing the similarities and differences in the overall crime report profiles between counties.
+This post focuses on exploring the 2019 crime report profiles of
+Florida’s counties. The goal is to visualizing the similarities and
+differences in the overall crime report profiles between counties.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-05-02/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-05-02/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-03-13/post.html'>Regression Analysis of Forced Expiratory Volume </a>
+<a class='links' href='posts/2021-03-13/post.html'>Regression Analysis
+of Forced Expiratory Volume </a>
 </h3>
 <h5>
 Mar 13, 2021
 </h5>
 <p>
-<p>The data used for this analysis was obtained from the Journal of Statistical Education Data Archive. It consists of a sample of 654 subjects, male and female, aged 3 to 19 years old from the area of East Boston during the late 1970s. This analysis attempts to determine the relationship between forced expiratory volume (FEV) and smoking status via linear regression.</p>
+<p>The data used for this analysis was obtained from the Journal of
+Statistical Education Data Archive. It consists of a sample of 654
+subjects, male and female, aged 3 to 19 years old from the area of East
+Boston during the late 1970s. This analysis attempts to determine the
+relationship between forced expiratory volume (FEV) and smoking status
+via linear regression.</p>
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-03-13/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-03-13/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-03-05/post.html'>Data Wrangling Ep 1: Parsing Data From A PDF </a>
+<a class='links' href='posts/2021-03-05/post.html'>Data Wrangling Ep 1:
+Parsing Data From A PDF </a>
 </h3>
 <h5>
 Mar 05, 2021
 </h5>
 <p>
-This post will be the first in a series of posts demonstrating how I approach data wrangling problems. As an analyst in a clinical research setting I spend a great majority of my time cleaning and transforming data for analysis and thought it’d be a good idea to start documenting my approach to various types of data.
+This post will be the first in a series of posts demonstrating how I
+approach data wrangling problems. As an analyst in a clinical research
+setting I spend a great majority of my time cleaning and transforming
+data for analysis and thought it’d be a good idea to start documenting
+my approach to various types of data.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-03-05/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-03-05/post.html'>Read
+More</a>
 <hr>
 <h3>
-<a class='links' href='posts/2021-01-03/post.html'>From SQL to Python: Data Science 101</a>
+<a class='links' href='posts/2021-01-03/post.html'>From SQL to Python:
+Data Science 101</a>
 </h3>
 <h5>
 Jan 03, 2021
 </h5>
 <p>
-As part of the final project for my Data Science For Clinical Research class in graduate school I needed to create a machine learning model capable of detecting asthmatic subjects. The purpose of this project was not to create a production ready model using state-of-the art machine learning algorithms but to understand the fundamentals of data science.
+As part of the final project for my Data Science For Clinical Research
+class in graduate school I needed to create a machine learning model
+capable of detecting asthmatic subjects. The purpose of this project was
+not to create a production ready model using state-of-the art machine
+learning algorithms but to understand the fundamentals of data science.
 </p>
-<a class='btn btn-outline-primary btn-sm' href='posts/2021-01-03/post.html'>Read More</a>
+<a class='btn btn-outline-primary btn-sm' href='posts/2021-01-03/post.html'>Read
+More</a>
 <hr>
 </div>
 
