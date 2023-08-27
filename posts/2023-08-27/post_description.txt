@@ -1,0 +1,1 @@
+This post documents the steps taken for the setup and configuration of my Azure Databricks workspace. The objective was to create a cost-efficient and versatile workspace in Databricks, aimed at providing a sandbox environment for data engineering experiments.
