@@ -13,15 +13,6 @@ library(glue)
 library(lubridate)
 ```
 
-<br>
-
-# About
-Hello, I’m Laurence and welcome to my blog. I created this blog to showcase my passion projects, highlight the beauty of the R programming language and provide a platform for learning. Everything you see here has been crafted with care using R Markdown, and if you're curious, you can find the source code [here](https://github.com/ljwoodley/ljwoodley.github.io){target="_blank"}.
-
-I graduated from the University of Florida with an undergraduate degree in Statistics and since then I have had the pleasure of working with a wide variety of data from political, health and criminal intelligence domains. Currently, I spend my days working on projects centered around analytics engineering where the majority of my work is done with R, SQL and Microsoft Azure but I also use Docker and Python when necessary.
-
-During my free time I enjoy exploring the vibrant landscape of data science and engineering blogs to expand my knowledge. When I'm not immersed in data related activities you'll find me exploring new places, experiencing different cultures or savoring diverse cuisines.
-
 
 ```{r  message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 all_posts <- dir_tree("posts", glob = "*.html|*.txt") %>%
@@ -51,9 +42,6 @@ all_posts <- dir_tree("posts", glob = "*.html|*.txt") %>%
   filter(str_detect(file_name, ".html"))
 ```
 
-<br>
-
-# Posts
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE, results='asis'}
 glue_data(all_posts,
     "<h3><a class='links' href='{file_name}'>{post_title}</a></h3>",
