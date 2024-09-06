@@ -1,0 +1,1 @@
+This dashboard provides an overview of the Year-To-Date (YTD) and historical performance of the Nasdaq Futures Index and the Nasdaq-100 stocks. It was created as part of an end-to-end data pipeline [project](https://github.com/ljwoodley/nasdaq100_elt), leveraging Python, Dagster, dbt, and Quarto.
